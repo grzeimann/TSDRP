@@ -1,5 +1,4 @@
-# Tull Coudé Echelle Spectrograph Reduction Pipeline
-The Robert G. Tull Coudé Spectrograph Data Reduction Pipeline
+# The Robert G. Tull Coudé Spectrograph Data Reduction Pipeline
 
 ## Overview
 The Tull Coudé Echelle Spectrograph Reduction Pipeline is designed to process and analyze spectral data from the Tull Coudé Echelle Spectrograph at the Harlan J. Smith Telescope. This pipeline facilitates produces order extracted spectra for the following setups:
