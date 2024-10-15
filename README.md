@@ -33,6 +33,7 @@ Ensure you have the following installed:
 ### Required Libraries
 ```bash
 pip install numpy scipy matplotlib astropy scikit-image seaborn
+```
 
 ### Optional but Suggested Libraries
 ```bash
