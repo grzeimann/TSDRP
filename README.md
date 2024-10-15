@@ -19,8 +19,12 @@ The Tull Coudé Echelle Spectrograph Reduction Pipeline is designed to process a
 ## Installation
 ```bash
 git clone https://github.com/grzeimann/TSP.git
+```
+## Usage
+```bash
 python WHEREVER/TSP/pipeline.py FOLDER BASEDIR
 ```
+
 ### Prerequisites
 Ensure you have the following installed:
 - Python 3.x
