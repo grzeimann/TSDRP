@@ -20,7 +20,7 @@ The Tull Coudé Echelle Spectrograph Reduction Pipeline is designed to process a
 ```bash
 git clone https://github.com/grzeimann/TSP.git
 python WHEREVER/TSP/pipeline.py FOLDER BASEDIR
-
+```
 ### Prerequisites
 Ensure you have the following installed:
 - Python 3.x
@@ -33,3 +33,4 @@ pip install numpy scipy matplotlib astropy scikit-image seaborn
 ### Optional but Suggested Libraries
 ```bash
 pip install cosmic_conn
+```
