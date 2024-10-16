@@ -36,5 +36,5 @@ pip install numpy scipy matplotlib astropy scikit-image seaborn
 
 ### Optional but Suggested Libraries
 ```bash
-pip install cosmic_conn
+pip install cosmic_conn, maskfill
 ```
