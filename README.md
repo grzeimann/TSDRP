@@ -60,7 +60,19 @@ git clone https://github.com/grzeimann/TSP.git
 ```
 ## Usage
 ```bash
-python WHEREVER/TSP/pipeline.py FOLDER BASEDIR
+usage: python reduction.py [-h] [-we] [-fae] [-fw] folder rootdir
+
+positional arguments:
+  folder                folder for reduction
+  rootdir               base directory for raw data
+
+options:
+  -h, --help            show this help message and exit
+  -we, --weighted_extraction
+                        Extract spectra using fiber profile weights
+  -fae, --full_aperture_extraction
+                        Extract the full aperture for each spectrum
+  -fw, --fit_wave       Fit the wavelength solution
 ```
 
 ### Prerequisites
