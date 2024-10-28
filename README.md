@@ -10,6 +10,21 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
 git clone https://github.com/grzeimann/TSP.git
 ```
 
+### Prerequisites
+Ensure you have the following installed:
+- Python 3.x
+- Required libraries (listed below)
+
+### Required Libraries
+```bash
+pip install numpy scipy matplotlib astropy scikit-image seaborn
+```
+
+### Optional but Suggested Libraries
+```bash
+pip install maskfill
+```
+
 ## Usage
 ```python
 usage: reduction.py [-h] [-ea EXTRACTION_APERTURE] [-we] [-fae] [-fw] [-drc]
@@ -33,21 +48,6 @@ options:
                         Do not reject cosmic rays
   -dcn, --dont_cont_normalize
                         Do not continuum normalize
-```
-
-### Prerequisites
-Ensure you have the following installed:
-- Python 3.x
-- Required libraries (listed below)
-
-### Required Libraries
-```bash
-pip install numpy scipy matplotlib astropy scikit-image seaborn
-```
-
-### Optional but Suggested Libraries
-```bash
-pip install maskfill
 ```
 
 ## Key Tasks
