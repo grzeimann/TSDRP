@@ -52,6 +52,19 @@ options:
                         Do not continuum normalize
 ```
 
+### Examples
+For reductions, it’s best to process one night at a time. The code works within a directory structure rooted in a base folder (rootdir). See the example below.
+```bash
+/rootdir
+/rootdir/night1
+/rootdir/night2
+/rootdir/night3
+```
+For the example above, you could reduce one night at a time like:
+```bash
+python WHEREVER/TSDRP/reduction.py night1 rootdir
+```
+
 ## Summary
 
 ## Key Tasks
