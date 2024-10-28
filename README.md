@@ -53,8 +53,8 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
    - The get_wavelength_offset_from_archive function calculates and applies wavelength offsets to a new set of arc spectra by comparing them with archived arc spectra and their corresponding wavelength solutions. It begins by computing the continuum for both archived and new spectra, followed by a loop that calculates pixel shifts between the spectra using phase cross-correlation. A polynomial fit is then applied to the computed offsets, and these offsets are added to the archived wavelength solution. The function also interpolates the archived spectra to match the corrected wavelengths and computes wavelength offsets in chunks to refine the corrections. Finally, it visualizes the offsets and returns the corrected wavelength solution as a 2D array. The plot of the wavelenth correction is in the reduction folder.
 
 12. **Combined Wavelength for Rectification**
-    - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
-    - This code computes a new wavelength array by first taking the logarithm of the input wavelength array, determining the minimum and maximum logarithmic values, calculating the median step size between the logarithmic values, and then generating a specified number of steps based on these values; finally, it exponentiates the linearly spaced logarithmic values to obtain the combined wavelength array.
+   - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
+   - This code computes a new wavelength array by first taking the logarithm of the input wavelength array, determining the minimum and maximum logarithmic values, calculating the median step size between the logarithmic values, and then generating a specified number of steps based on these values; finally, it exponentiates the linearly spaced logarithmic values to obtain the combined wavelength array.
 
 13. **Deblazing and Combining Orders**
     - Calculate the blaze function to correct for the instrument’s spectral response from the flat-field spectra.
@@ -62,8 +62,8 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
     - The combine_spectrum function combines multiple spectra into a single spectrum through weighted averaging. It first interpolates the individual spectra and their associated errors onto a specified new wavelength grid using piecewise cubic Hermite interpolation. Then, it calculates the combined spectrum by summing the weighted interpolated spectra and propagates the uncertainties to compute the combined error, returning both the resulting spectrum and its associated error.
    
 14. **Cosmic Ray Detection**
-   - We use a new but robust approach for cosmic ray detection.
-   - This code first computes a smoothed version of the error array using a median filter of width ~10 for each row. It then creates a binary model indicating where the error frame significantly exceeds the smoothed error frame by normalizing the difference and setting values outside a specific range to zero. The model is convolved with a 2D box kernel to expand the detection of outliers, which are cosmic rays, and updates the total mask by combining the existing mask with newly identified problematic pixels.
+    - We use a new but robust approach for cosmic ray detection.
+    - This code first computes a smoothed version of the error array using a median filter of width ~10 for each row. It then creates a binary model indicating where the error frame significantly exceeds the smoothed error frame by normalizing the difference and setting values outside a specific range to zero. The model is convolved with a 2D box kernel to expand the detection of outliers, which are cosmic rays, and updates the total mask by combining the existing mask with newly identified problematic pixels.
 
 14. **Science Frame Reduction**
     - The script reduces science frames by applying bias, scattered light, and flat-field corrections.
