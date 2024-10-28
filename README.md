@@ -28,7 +28,7 @@ pip install maskfill
 
 ## Usage
 ```python
-usage: reduction.py [-h] [-ea EXTRACTION_APERTURE] [-we] [-fae] [-fw] [-drc]
+usage: python reduction.py [-h] [-ea EXTRACTION_APERTURE] [-we] [-fae] [-fw] [-drc]
                     [-dcn]
                     folder rootdir
 
@@ -39,7 +39,8 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   -ea EXTRACTION_APERTURE, --extraction_aperture EXTRACTION_APERTURE
-                        Extract spectra using fiber profile weights
+                        Pixel aperture in "rows" used for extraction
+                        (default=11)
   -we, --weighted_extraction
                         Extract spectra using fiber profile weights
   -fae, --full_aperture_extraction
