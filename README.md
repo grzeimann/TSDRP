@@ -5,6 +5,51 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
 
 - TS23
 
+## Installation
+```bash
+git clone https://github.com/grzeimann/TSP.git
+```
+
+## Usage
+```python
+usage: reduction.py [-h] [-ea EXTRACTION_APERTURE] [-we] [-fae] [-fw] [-drc]
+                    [-dcn]
+                    folder rootdir
+
+positional arguments:
+  folder                folder for reduction
+  rootdir               base directory for raw data
+
+options:
+  -h, --help            show this help message and exit
+  -ea EXTRACTION_APERTURE, --extraction_aperture EXTRACTION_APERTURE
+                        Extract spectra using fiber profile weights
+  -we, --weighted_extraction
+                        Extract spectra using fiber profile weights
+  -fae, --full_aperture_extraction
+                        Extract the full aperture for each spectrum
+  -fw, --fit_wave       Fit the wavelength solution
+  -drc, --dont_reject_cosmics
+                        Do not reject cosmic rays
+  -dcn, --dont_cont_normalize
+                        Do not continuum normalize
+```
+
+### Prerequisites
+Ensure you have the following installed:
+- Python 3.x
+- Required libraries (listed below)
+
+### Required Libraries
+```bash
+pip install numpy scipy matplotlib astropy scikit-image seaborn
+```
+
+### Optional but Suggested Libraries
+```bash
+pip install maskfill
+```
+
 ## Key Tasks
 
 1. **Configuration Values**
@@ -86,38 +131,4 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
                         combined_error])]  # Combined data   
 ```
 
-## Installation
-```bash
-git clone https://github.com/grzeimann/TSP.git
-```
-## Usage
-```python
-usage: python reduction.py [-h] [-we] [-fae] [-fw] folder rootdir
 
-positional arguments:
-  folder                folder for reduction
-  rootdir               base directory for raw data
-
-options:
-  -h, --help            show this help message and exit
-  -we, --weighted_extraction
-                        Extract spectra using fiber profile weights
-  -fae, --full_aperture_extraction
-                        Extract the full aperture for each spectrum
-  -fw, --fit_wave       Fit the wavelength solution
-```
-
-### Prerequisites
-Ensure you have the following installed:
-- Python 3.x
-- Required libraries (listed below)
-
-### Required Libraries
-```bash
-pip install numpy scipy matplotlib astropy scikit-image seaborn
-```
-
-### Optional but Suggested Libraries
-```bash
-pip install maskfill
-```
