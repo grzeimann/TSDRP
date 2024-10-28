@@ -72,7 +72,7 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
     - Optionally, detect cosmic rays and fill masked pixels.
     - Re-extract, deblaze, and combine spectral orders.
     - Save the reduced spectra to a FITS file (see below for the extensions)
-```bash
+```python
     # Create a list of FITS HDUs (Header Data Units) for each data component
     L = [fits.PrimaryHDU(header=header),   # Primary HDU with header
          fits.ImageHDU(original),          # Original image
@@ -91,7 +91,7 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
 git clone https://github.com/grzeimann/TSP.git
 ```
 ## Usage
-```bash
+```python
 usage: python reduction.py [-h] [-we] [-fae] [-fw] folder rootdir
 
 positional arguments:
