@@ -76,11 +76,14 @@ The reductions will then be placed here:
 /rootdir/night1/reduc/ff_model.fits
 /rootdir/night1/reduc/mask_image.fits
 /rootdir/night1/reduc/trace_image.fits
-/rootdir/night1/reduc/FILENAME1_reduced.fits
 /rootdir/night1/reduc/wave_offset_1D.png
 /rootdir/night1/reduc/wave_offset_2D.png
+/rootdir/night1/reduc/FILENAME1_reduced.fits
 /rootdir/night1/reduc/trace_offset_FILENAME1_residual.png
 ```
+
+Calibration products from the night are placed in the "reduc" folder along with visualizations of the wavelength offsets from the archive solution, trace offsets for each science frame, and finally the science reduction products themselves.
+
 
 ## Summary
 
