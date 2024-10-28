@@ -60,9 +60,26 @@ For reductions, it’s best to process one night at a time. The code works withi
 /rootdir/night2
 /rootdir/night3
 ```
+
 For the example above, you could reduce one night at a time like:
 ```bash
 python WHEREVER/TSDRP/reduction.py night1 rootdir
+python WHEREVER/TSDRP/reduction.py night2 rootdir
+python WHEREVER/TSDRP/reduction.py night3 rootdir
+```
+
+The reductions will then be placed here:
+```bash
+/rootdir/night1/reduc/arc_image.fits
+/rootdir/night1/reduc/bias_image.fits
+/rootdir/night1/reduc/ff_image.fits
+/rootdir/night1/reduc/ff_model.fits
+/rootdir/night1/reduc/mask_image.fits
+/rootdir/night1/reduc/trace_image.fits
+/rootdir/night1/reduc/FILENAME1_reduced.fits
+/rootdir/night1/reduc/wave_offset_1D.png
+/rootdir/night1/reduc/wave_offset_2D.png
+/rootdir/night1/reduc/trace_offset_FILENAME1_residual.png
 ```
 
 ## Summary
