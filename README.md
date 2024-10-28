@@ -28,27 +28,31 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
    - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a high-resolution full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
    - The trace information is saved as a FITS file (trace_image.fits).
 
-7. **Flat-Field Correction**:
-   - Create a 2D flat-field correction model using the measured trace normalized by the spectra from the flat field.
-   - Save the flat-field correction model as a FITS file.
+7. **Scattered Light**:
+   - The get_scattered_light function estimates and removes scattered light from an image by performing percentile filtering, smoothing, and interpolation, followed by row-wise polynomial fitting. It begins by scanning each column to extract low-level background values through percentile filtering, which are then smoothed with a Gaussian kernel. After applying a mask from task 5, the function uses interpolation and a polynomial fit to create a smooth model of scattered light across the image, producing a refined scattered light profile (scattered_light) and a raw version (S) before the polynomial fit.
 
-8. **Master Arc Image and Spectra Creation**:
+9. **Flat-Field Correction**:
+   - This section of the code generates a 2D flat-field correction image by estimating and removing scattered light, modeling fiber spectra, and normalizing based on regions outside the trace. It starts by retrieving the scattered light background get_scattered_light().
+   - Next, it creates a fiber model image (model) after subtracting the scattered light from the average flat field (avg_ff). The make_fiber_model_image function generates a model image of smoothed fiber spectra for flat-fielding purposes by extracting and fitting fiber profiles across the input image. It uses fiber trace locations, a specified extraction window, and calculated weights to assemble a "smooth" 2D model image where fiber patterns are smoothed, excluding edge fibers to avoid boundary artifacts. This output model image can then serve as a flat-field correction reference.
+   - A mask is then generated to identify regions outside the trace (outside_trace_sel). The flat field is computed by dividing avg_ff minus the background divided by the model image and then normalized using the biweight of the selected regions. Masked and non-relevant areas are set to 1 or NaN, and the final flat field is saved as a FITS file named ff_model.fits.
+
+11. **Master Arc Image and Spectra Creation**:
    - Build the master arc frame from arc calibration files.
    - Extract arc spectra.
    - Save the master arc frame and arc spectra.
 
-9. **Load Wavelength Solution**:
+11. **Load Wavelength Solution**:
    - Load the wavelength solution for the input setup from an archived file.
    - Adjust the wavelength solution based on extracted arc spectra.
 
-10. **Combined Wavelength for Rectification**:
+11. **Combined Wavelength for Rectification**:
     - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
 
-11. **Deblazing and Combining Orders**:
+12. **Deblazing and Combining Orders**:
     - Calculate the blaze function to correct for the instrument’s spectral response from the flat-field spectra.
     - Generate weights for combining spectral orders using blaze-corrected flat-field spectra.
 
-12. **Science Frame Reduction**:
+13. **Science Frame Reduction**:
     - Reduce science frames by applying bias, scattered light, and flat-field corrections.
     - Optionally, detect cosmic rays and fill masked pixels.
     - Extract spectra, correct the trace, re-extract, deblaze, and combine spectral orders.
