@@ -84,8 +84,7 @@ The reductions will then be placed here:
 
 Calibration products from the night are placed in the "reduc" folder along with visualizations of the wavelength offsets from the archive solution, trace offsets for each science frame, and finally the science reduction products themselves.
 
-
-## Summary
+### Product Descriptions
 
 ## Key Tasks
 
