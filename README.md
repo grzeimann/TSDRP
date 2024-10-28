@@ -52,6 +52,8 @@ options:
                         Do not continuum normalize
 ```
 
+## Summary
+
 ## Key Tasks
 
 1. **Configuration Values**
