@@ -18,16 +18,15 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
 
 4. **Master Flat Creation**:
    - The build_master_ff function generates a master flat-field image by averaging multiple flat-field frames, after subtracting a master bias and removing a designated bias section. It takes as inputs a list of flat-field file paths (ff_files), the number of rows (Nrows), columns (Ncols), the size of the bias section to exclude (Bias_section_size), and the precomputed master bias image (avg_bias). Each flat-field image is loaded, the bias is removed from the specified section, and only the relevant columns are retained. The images are then edge-trimmed, the master bias is subtracted, and the function uses robust biweight averaging to create the final master flat-field image (avg_ff).
-   - The master flat frame is saved as a FITS file (ff_image.fits.
+   - The master flat frame is saved as a FITS file (ff_image.fits).
 
 5. **Mask Frame Creation**:
-   - Generate a mask frame to identify bad pixels and masking known bad columns.
-   - Optionally, you can mask the picket effect although the location may be different than the hard coded location.
-   - Save the mask frame as a FITS file.
+   - The make_mask function generates a binary mask for an input image, marking specified columns and an optional "picket fence" region for exclusion, based on given height and bias parameters.
+   - The mask frame is saved as a FITS file (mask_image.fits).
 
 6. **Trace Measurement**:
-   - Measure the pixel trace from the flat-field frame and identify the spectral orders.
-   - Save the trace information as a FITS file.
+   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a high-resolution full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
+   - The trace information is saved as a FITS file (trace_image.fits).
 
 7. **Flat-Field Correction**:
    - Create a 2D flat-field correction model using the measured trace normalized by the spectra from the flat field.
