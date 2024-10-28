@@ -46,15 +46,15 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
       - The is run if the option --fit_wave is set.  This task is really for generating the arc_spectra.fits for relevant setups and probably won't be run by users unless the wavelength solution starting points are just too far off.
 
 11. **Load Wavelength Solution**
-   - Load the wavelength solution for the input setup from an archived file (arc_spectra.fits).
+      - Load the wavelength solution for the input setup from an archived file (arc_spectra.fits).
 
 12. **Adjust Wavelength Solution**
-   - Since step 10 is not often run by the user, the starting wavelength solution may be off from the night's reduction.  Here we adjust the wavelenth solution for the night.
-   - The get_wavelength_offset_from_archive function calculates and applies wavelength offsets to a new set of arc spectra by comparing them with archived arc spectra and their corresponding wavelength solutions. It begins by computing the continuum for both archived and new spectra, followed by a loop that calculates pixel shifts between the spectra using phase cross-correlation. A polynomial fit is then applied to the computed offsets, and these offsets are added to the archived wavelength solution. The function also interpolates the archived spectra to match the corrected wavelengths and computes wavelength offsets in chunks to refine the corrections. Finally, it visualizes the offsets and returns the corrected wavelength solution as a 2D array. The plot of the wavelenth correction is in the reduction folder.
+      - Since step 10 is not often run by the user, the starting wavelength solution may be off from the night's reduction.  Here we adjust the wavelenth solution for the night.
+      - The get_wavelength_offset_from_archive function calculates and applies wavelength offsets to a new set of arc spectra by comparing them with archived arc spectra and their corresponding wavelength solutions. It begins by computing the continuum for both archived and new spectra, followed by a loop that calculates pixel shifts between the spectra using phase cross-correlation. A polynomial fit is then applied to the computed offsets, and these offsets are added to the archived wavelength solution. The function also interpolates the archived spectra to match the corrected wavelengths and computes wavelength offsets in chunks to refine the corrections. Finally, it visualizes the offsets and returns the corrected wavelength solution as a 2D array. The plot of the wavelenth correction is in the reduction folder.
 
 12. **Combined Wavelength for Rectification**
-   - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
-   - This code computes a new wavelength array by first taking the logarithm of the input wavelength array, determining the minimum and maximum logarithmic values, calculating the median step size between the logarithmic values, and then generating a specified number of steps based on these values; finally, it exponentiates the linearly spaced logarithmic values to obtain the combined wavelength array.
+      - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
+      - This code computes a new wavelength array by first taking the logarithm of the input wavelength array, determining the minimum and maximum logarithmic values, calculating the median step size between the logarithmic values, and then generating a specified number of steps based on these values; finally, it exponentiates the linearly spaced logarithmic values to obtain the combined wavelength array.
 
 13. **Deblazing and Combining Orders**
     - Calculate the blaze function to correct for the instrument’s spectral response from the flat-field spectra.
