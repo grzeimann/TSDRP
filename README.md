@@ -13,12 +13,12 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
    - Image dimensions (`Nrows`, `Ncols`) set, bias section size, and instrument parameters such as `gain` and `readnoise`.
 
 3. **Master Bias Creation**:
-   - Build a master bias frame from bias calibration files.
-   - Save the master bias frame as a FITS file.
+   - The build_master_bias function creates a master bias image by averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
+   - The master bias frame is saved as a FITS file (bias_image.fits).
 
 4. **Master Flat Creation**:
-   - Create a master flat-field frame from flat-field calibration files, applying bias corrections.
-   - Save the master flat frame as a FITS file.
+   - The build_master_ff function generates a master flat-field image by averaging multiple flat-field frames, after subtracting a master bias and removing a designated bias section. It takes as inputs a list of flat-field file paths (ff_files), the number of rows (Nrows), columns (Ncols), the size of the bias section to exclude (Bias_section_size), and the precomputed master bias image (avg_bias). Each flat-field image is loaded, the bias is removed from the specified section, and only the relevant columns are retained. The images are then edge-trimmed, the master bias is subtracted, and the function uses robust biweight averaging to create the final master flat-field image (avg_ff).
+   - The master flat frame is saved as a FITS file (ff_image.fits.
 
 5. **Mask Frame Creation**:
    - Generate a mask frame to identify bad pixels and masking known bad columns.
