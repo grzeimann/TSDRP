@@ -66,11 +66,12 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
    - This code first computes a smoothed version of the error array using a median filter of width ~10 for each row. It then creates a binary model indicating where the error frame significantly exceeds the smoothed error frame by normalizing the difference and setting values outside a specific range to zero. The model is convolved with a 2D box kernel to expand the detection of outliers, which are cosmic rays, and updates the total mask by combining the existing mask with newly identified problematic pixels.
 
 14. **Science Frame Reduction**:
-    - Reduce science frames by applying bias, scattered light, and flat-field corrections.
-    - Extract spectra, correct the trace.
-    - Optionally, detect cosmic rays and fill masked pixels.
-    - Re-extract, deblaze, and combine spectral orders.
-    - Save the reduced spectra to a FITS file (see below for the extensions)
+    - The script reduces science frames by applying bias, scattered light, and flat-field corrections.
+    - It then extracts spectra and corrects the trace.
+    - Optionally, the script detects cosmic rays and fills masked pixels.
+    - Then, it re-extracts the spectra with the modified trace, deblazes, and combines spectral orders.
+    - Finally, it save the reduced spectra to a FITS file (see below for the extensions)
+      
 ```python
     # Create a list of FITS HDUs (Header Data Units) for each data component
     L = [fits.PrimaryHDU(header=header),   # Primary HDU with header
