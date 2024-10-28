@@ -20,7 +20,8 @@ Ensure you have the following installed:
 pip install numpy scipy matplotlib astropy scikit-image seaborn
 ```
 
-### Optional but Suggested Libraries
+### Optional Libraries (Suggested)
+To fill in masked values we use Pieter van Dokkum's maskfill.  The description can be found in van Dokkum & Pasha (2024) (PASP).
 ```bash
 pip install maskfill
 ```
