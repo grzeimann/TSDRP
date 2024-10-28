@@ -40,7 +40,7 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and
    - Build the master arc frame from arc calibration files.
    - Extract arc spectra.
    - Save the master arc frame and arc spectra.
-
+     
 10. **Fit Wavelength Solution**
    - The fit_wavelength_solution function computes and saves a wavelength calibration for a given 2D array of spectra by matching observed arc lines to known reference wavelengths. It begins by normalizing the spectra using a continuum and then iteratively analyzes each spectral order (excluding the edges) to locate arc peaks, adjusting for offsets based on reference data. A polynomial fit is applied to these offsets to derive a wavelength solution for each order. The function further refines this solution by applying corrections based on observed peak locations. Finally, it saves the resulting wavelength solution along with the original spectra as a FITS file (arc_spectra.fits)
    - The is run if the option --fit_wave is set.  This task is really for generating the arc_spectra.fits for relevant setups and probably won't be run by users unless the wavelength solution starting points are just too far off.
