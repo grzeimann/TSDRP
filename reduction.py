@@ -2151,8 +2151,6 @@ for filename in sci_files:
                    f[0].header, filename, data, datae)
 
     
-# Compare the spectra
-# AI Documentation
 # More examples
 # ff_model flag for too low of signal.
 # Write out the full extraction if called
