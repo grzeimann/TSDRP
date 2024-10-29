@@ -1873,16 +1873,18 @@ parser.add_argument("-fl", "--flat_label",
 args = None
 args = parser.parse_args(args=args)
 
+
+CUR_DIR = get_script_path()
 # Turn off annoying warnings (even though some deserve attention)
 warnings.filterwarnings("ignore")
 
 fit_wave = args.fit_wave
 
 # Murphy et al. (2007)
-Murphy_table = Table.read('thar_MM201006.dat', format='ascii')
+Murphy_table = Table.read(op.join(CUR_DIR, 'config','thar_MM201006.dat'), format='ascii')
 Murphy_Sw = np.array(Murphy_table['col2'])
 
-ecTHAR = Table.read('ecTHAR.txt', format='ascii')
+ecTHAR = Table.read(op.join(CUR_DIR, 'config','ecTHAR.txt'), format='ascii')
 
 sns.set_style('ticks')
 sns.set_context('talk')
@@ -1901,7 +1903,6 @@ except:
     log.warning('maskfill is not installed')
     mask_fill = False
 
-CUR_DIR = get_script_path()
 
 folder = args.folder # '20240511'
 basefolder = args.rootdir # '/Users/grz85/work/TS23/2.7m'
@@ -2149,3 +2150,10 @@ for filename in sci_files:
                    combined_wave, combined_err, combined_spectrum, 
                    f[0].header, filename, data, datae)
 
+    
+# Compare the spectra
+# AI Documentation
+# More examples
+# ff_model flag for too low of signal.
+# Write out the full extraction if called
+# update the header words
