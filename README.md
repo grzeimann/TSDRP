@@ -29,7 +29,7 @@ pip install maskfill
 ## Usage
 ```python
 usage: python reduction.py [-h] [-ea EXTRACTION_APERTURE] [-we] [-fae] [-fw] [-drc]
-                    [-dcn]
+                    [-dcn] [-bl BIAS_LABEL] [-al ARC_LABEL] [-fl FLAT_LABEL]
                     folder rootdir
 
 positional arguments:
@@ -50,6 +50,12 @@ options:
                         Do not reject cosmic rays
   -dcn, --dont_cont_normalize
                         Do not continuum normalize
+  -bl BIAS_LABEL, --bias_label BIAS_LABEL
+                        The objet name for bias files (default: "bias")
+  -al ARC_LABEL, --arc_label ARC_LABEL
+                        The objet name for arc files (default: "ThAr")
+  -fl FLAT_LABEL, --flat_label FLAT_LABEL
+                        The objet name for flat files (default: "FF")
 ```
 
 ### Examples
