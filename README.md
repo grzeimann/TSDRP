@@ -76,16 +76,16 @@ python WHEREVER/TSDRP/reduction.py night3 rootdir
 
 The reductions will then be placed here:
 ```bash
-/rootdir/night1/reduc/arc_image.fits
-/rootdir/night1/reduc/bias_image.fits
-/rootdir/night1/reduc/ff_image.fits
-/rootdir/night1/reduc/ff_model.fits
-/rootdir/night1/reduc/mask_image.fits
-/rootdir/night1/reduc/trace_image.fits
-/rootdir/night1/reduc/wave_offset_1D.png
-/rootdir/night1/reduc/wave_offset_2D.png
-/rootdir/night1/reduc/FILENAME1_reduced.fits
-/rootdir/night1/reduc/trace_offset_FILENAME1_residual.png
+/rootdir/night1/reduce/arc_image.fits
+/rootdir/night1/reduce/bias_image.fits
+/rootdir/night1/reduce/ff_image.fits
+/rootdir/night1/reduce/ff_model.fits
+/rootdir/night1/reduce/mask_image.fits
+/rootdir/night1/reduce/trace_image.fits
+/rootdir/night1/reduce/wave_offset_1D.png
+/rootdir/night1/reduce/wave_offset_2D.png
+/rootdir/night1/reduce/FILENAME1_reduced.fits
+/rootdir/night1/reduce/trace_offset_FILENAME1_residual.png
 ```
 
 Calibration products from the night are stored in the 'reduc' folder. This folder also contains visualizations of wavelength offsets from the archive solution, trace offsets for each science frame, and the final science reduction products.
