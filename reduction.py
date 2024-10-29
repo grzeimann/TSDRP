@@ -1870,7 +1870,7 @@ parser.add_argument("-fl", "--flat_label",
                     help='''The objet name for flat files''',
                    type=str, default='FF + CBF')
 
-args = ["20240511", "/Users/grz85/work/TS23/2.7m", "-ea", "11"]
+args = None
 args = parser.parse_args(args=args)
 
 # Turn off annoying warnings (even though some deserve attention)
