@@ -88,7 +88,7 @@ The reductions will then be placed here:
 /rootdir/night1/reduce/trace_offset_FILENAME1_residual.png
 ```
 
-Calibration products from the night are stored in the 'reduc' folder. This folder also contains visualizations of wavelength offsets from the archive solution, trace offsets for each science frame, and the final science reduction products.
+Calibration products from the night are stored in the 'reduce' folder. This folder also contains visualizations of wavelength offsets from the archive solution, trace offsets for each science frame, and the final science reduction products.
 
 ### Product Descriptions
 
