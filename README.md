@@ -1,7 +1,7 @@
 # The Robert G. Tull Coudé Spectrograph Data Reduction Pipeline
 
 ## Overview
-The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process and analyze spectral data from the Tull Coudé Echelle Spectrograph at the Harlan J. Smith Telescope. This pipeline produces order extracted spectra for the following setups:
+The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process spectral data from the Tull Coudé Echelle Spectrograph. It offers functionalities like spectral extraction, bias subtraction, flat-field correction, wavelength calibration, cosmic ray rejection, and full aperture extraction. The pipeline allows users to reduce one night of data at a time and organizes reduction products with the calibration products created. Additionally, users can customize processing with command-line options. This pipeline currently works for the following setups:
 
 - TS23
 
