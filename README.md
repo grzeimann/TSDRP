@@ -13,12 +13,19 @@ git clone https://github.com/grzeimann/TSP.git
 ### Prerequisites
 Ensure you have the following installed:
 - Python 3.x
+- Numpy v1.24+
+- Scipy v1.11+
+- Astropy v5.3+
+- Matplotlib v3.7+
+- Scikit-image v0.20+
+- Seaborn v0.12+
 - Required libraries (listed below)
 
 ### Required Libraries
 ```bash
 pip install numpy scipy matplotlib astropy scikit-image seaborn
 ```
+
 
 ### Optional Libraries (Suggested)
 To fill in masked values we use Pieter van Dokkum's maskfill.  The description can be found in van Dokkum & Pasha (2024) (PASP).
