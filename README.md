@@ -99,7 +99,7 @@ Calibration products from the night are stored in the 'reduce' folder. This fold
 
 ### Product Descriptions
 
-
+This code generates a multi-frame FITS file in the "reduce" folder. This file includes various data frames: the original image, the cleaned (bias-subtracted) image, the error frame, the binary mask, the spectra for each order, the error associated with each order, and the wavelength calibration for each order. Additionally, the file contains combined data, including the flattened (or merged) wavelength solution, spectrum, and associated errors. If the full_aperture_extraction flag is enabled, the complete spectra for each aperture and their corresponding errors are also appended to the file.
 
 
 ## Key Tasks
