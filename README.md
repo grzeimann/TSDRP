@@ -121,7 +121,7 @@ This code generates a multi-frame FITS file in the "reduce" folder. This file in
    - The mask frame is saved as a FITS file (mask_image.fits).
 
 6. **Trace Measurement**
-   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a high-resolution full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
+   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
    - The trace information is saved as a FITS file (trace_image.fits).
 
 7. **Scattered Light**
