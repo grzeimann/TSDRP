@@ -21,7 +21,8 @@ from astropy.convolution import Box2DKernel
 from astropy.io import fits
 from astropy.modeling.fitting import FittingWithOutlierRemoval, LevMarLSQFitter
 from astropy.modeling.models import Polynomial1D, Polynomial2D, Gaussian1D
-from astropy.modeling.models import Const1D
+from astropy.modeling.models import Const1D, Spline1D
+from astropy.modeling.fitting import SplineExactKnotsFitter
 from astropy.stats import biweight_location as biweight
 from astropy.stats import mad_std, sigma_clip
 from astropy.table import Table
@@ -553,9 +554,9 @@ def find_peaks(y, thresh_frac=.01, local_thresh=False,
     peaks = y[np.round(peak_loc).astype(int)]
     return peak_loc, peaks   
 
-def get_trace(image, N=25, low=10, high=1850, order=7, keyfiber=20):
+def get_trace(image, N=25, low=10, high=1850, order=7, keyorder=20):
     ''' 
-    Computes trace for each fiber in an image by identifying fiber peaks 
+    Computes trace for each order in an image by identifying order peaks 
     across defined column chunks.
 
     Parameters
@@ -563,22 +564,22 @@ def get_trace(image, N=25, low=10, high=1850, order=7, keyfiber=20):
     image : 2D numpy array
         Slope image for an alpha-bright source.
     N : int, optional
-        Number of column chunks used to find the average location of fibers, default is 25.
+        Number of column chunks used to find the average location of orders, default is 25.
     low : int, optional
         Lower bound on peak detection within the image, default is 10.
     high : int, optional
         Upper bound on peak detection within the image, default is 1850.
     order : int, optional
         Polynomial order for fitting trace values, default is 7.
-    keyfiber : int, optional
-        Index for key fiber alignment within each chunk, default is 20.
+    keyorder : int, optional
+        Index for key order alignment within each chunk, default is 20.
 
     Returns
     -------
     full_trace : 2D numpy array
-        Array of shape (63, 2046) containing trace points for each fiber.
+        Array of shape (Norders, 2046) containing trace points for each order.
     trace : 2D numpy array
-        Array of detected trace points per chunk for each fiber.
+        Array of detected trace points per chunk for each order.
     x : numpy array
         Array of average x-coordinates for each chunk.
     '''
@@ -591,10 +592,10 @@ def get_trace(image, N=25, low=10, high=1850, order=7, keyfiber=20):
     x = [np.mean(xi) for xi in np.array_split(np.arange(image.shape[1]), N)]
     x = np.array(x)
     
-    # Starting location at the middle (last chunk)
+    # Starting location is the last chunk
     M = -1 + N
-    
-    # Find reference fiber peaks in middle chunk using biweight mean
+
+    # Find reference order peaks in middle chunk using biweight mean
     y = biweight(chunks[M], ignore_nan=True, axis=1)
     c = convolve(y, B)  # Enhance fiber peaks
     bottom = percentile_filter(c, 5, size=41)
@@ -604,16 +605,8 @@ def get_trace(image, N=25, low=10, high=1850, order=7, keyfiber=20):
     # Filter detected peaks to stay within defined bounds
     sel = (ref > low) & (ref < high)
     ref = ref[sel]
-    
-    # Estimate spacing between fibers and propagate adjustments
-    xp = ref[:-1]
-    yp = np.diff(ref)
-    model = np.polyval(np.polyfit(xp, yp, 7), xp)
-    for j in np.arange(keyfiber)[::-1]:
-        ref[j] = ref[j + 1] - model[j]
-    for j in np.arange(keyfiber + 1, len(ref)):
-        ref[j] = ref[j - 1] + model[j - 1]
-    
+        
+        
     # Build trace by aligning peaks with reference across all chunks
     trace = np.zeros((len(ref), N))
     trace[:, M] = ref
@@ -630,18 +623,8 @@ def get_trace(image, N=25, low=10, high=1850, order=7, keyfiber=20):
         D = np.abs(ref[:, np.newaxis] - locs[np.newaxis, :])
         inds = np.argmin(D, axis=1)
         ref = locs[inds] * 1.0
-        xp = ref[:-1]
-        yp = np.diff(ref)
-        model = np.polyval(np.polyfit(xp, yp, 7), xp)
-        
-        # Adjust trace points for consistency across fibers
-        for j in np.arange(keyfiber)[::-1]:
-            ref[j] = ref[j + 1] - model[j]
-        for j in np.arange(keyfiber + 1, len(ref)):
-            ref[j] = ref[j - 1] + model[j - 1]
-        
-        trace[:, i] = ref * 1.0  # Store adjusted reference for each chunk
-
+        trace[:, i] = ref  # Store adjusted reference for each chunk
+    
     # Generate full trace by fitting polynomial to trace values across chunks
     full_trace = np.zeros((trace.shape[0], image.shape[1]))
     X = np.arange(image.shape[1])
@@ -649,6 +632,8 @@ def get_trace(image, N=25, low=10, high=1850, order=7, keyfiber=20):
         full_trace[i] = np.polyval(np.polyfit(x, trace[i, :], order), X)
     
     return full_trace, trace, x  # Return completed trace arrays
+
+
 
 
 def make_mask_for_trace(image, trace, picket_height=23, picket_bias=-11):
@@ -687,6 +672,50 @@ def make_mask_for_trace(image, trace, picket_height=23, picket_bias=-11):
             top = bottom + picket_height
             mask[bottom:top, i] = 1.
     return mask
+
+def normalize_aperture(image, trace, picket_height=23, picket_bias=-11):
+    '''
+    Creates a binary mask around the trace in the image, marking regions to be 
+    ignored in further processing, based on the trace's position.
+
+    Parameters
+    ----------
+    image : 2D ndarray
+        The input image for which the mask is being created. 
+    trace : 1D ndarray or array-like
+        The vertical position of the trace in the image as a function of the 
+        columns of the image. 
+    picket_height : int, optional
+        The vertical size (in pixels) of the mask region above and below the 
+        trace. Defines how much area is masked around the trace. Default is 23.
+    picket_bias : int, optional
+        A vertical offset (in pixels) to shift the position of the mask 
+        relative  to the trace. A positive bias moves the mask upwards, and a 
+        negative bias moves it downwards. Default is -11.
+
+    Returns
+    -------
+    mask : 2D ndarray
+        A binary mask with the same shape as the input image. The region around 
+        the trace is set to 1, indicating where the mask covers, and the rest 
+        is set to 0.
+    '''
+
+    norm = 0. * image
+    x = np.arange(image.shape[1])
+    for j, y in enumerate(trace):
+        Y = image * 0.
+        for i in x:
+            bottom = int(y[i]) + picket_bias
+            top = bottom + picket_height
+            Y[bottom:top, i] = image[bottom:top, i]
+        avg = biweight(Y[Y!=0.0], ignore_nan=True)
+        for i in x:
+            bottom = int(y[i]) + picket_bias
+            top = bottom + picket_height
+            norm[bottom:top, i] = image[bottom:top, i] / avg
+    norm[np.isnan(norm)] = 1.
+    return norm
 
 def build_flat(image, trace, spectra, picket_height=23, picket_bias=-11):
     '''
@@ -928,9 +957,9 @@ def make_2d_wavelength_offset_plot(corrections, folder):
     plt.ylabel(r'Order')
     plt.savefig(op.join(reducfolder, 'wave_offset_2D.png'), dpi=150)
     
-def get_blaze_spectra(spectra):
+def get_blaze_spectra(spectra, knots=15):
     '''
-    
+
 
     Parameters
     ----------
@@ -944,27 +973,24 @@ def get_blaze_spectra(spectra):
     '''
     x = np.linspace(-1, 1, spectra.shape[1])
     B = spectra * 1.  
-    order = 8  # Polynomial order for fitting the spectra
+    fitter = SplineExactKnotsFitter()
 
+    P1d = Spline1D()
     # Step 3: Smooth the spectra using polynomial fitting
     for j in np.arange(spectra.shape[0]):  
         y = spectra[j] * 1.  
         good = np.isfinite(y)  
-
+        t = np.linspace(np.min(x[good])+0.01, np.max(x[good])-0.01, knots)
         # If sufficient valid points exist, perform the polynomial fitting
         if good.sum() > 50:
-            # Fit an 8th order polynomial to the spectrum
-            p0 = np.polyfit(x[good], y[good], order)
-            z = np.polyval(p0, x)
-
-            # Step 4: Identify and remove outliers based on the fit
-            m = mad_std((y - z) / z, ignore_nan=True)  
-            cut = np.max([3. * m, 0.05])  
-            outlier = np.abs(y - z) > cut * z 
-
-            # Refit the polynomial, excluding the outliers
-            p0 = np.polyfit(x[good * (~outlier)], y[good * (~outlier)], order)
-            z = np.polyval(p0, x)
+            fit = fitter(P1d, x[good], y[good], t=t)
+            z = fit(x)
+            mstd = mad_std(z - y, ignore_nan=True)
+            outlier = np.abs(z - y) > mstd*3.
+            good = good * (~outlier)
+            t = np.linspace(np.min(x[good])+0.01, np.max(x[good])-0.01, knots)
+            fit = fitter(P1d, x[good], y[good], t=t)
+            z = fit(x)
             B[j] = z  
             B[j][np.isnan(spectra[j])] = np.nan  
 
@@ -1049,6 +1075,10 @@ def get_trace_correction(spec, image, trace, nchunks=11):
 
     # Loop over spectral orders to extract and fit fiber profiles
     for order in np.arange(len(spec)):
+        if np.all(trace[order] == 0.):
+            continue
+        if np.all(np.isnan(spec[order])):
+            continue
         x, y, r = get_fiber_profile_order(image, spec, trace, order)
         x, y, r = [np.array(xi) for xi in [x, y, r]]
         X = np.arange(spec.shape[1])
@@ -1070,13 +1100,16 @@ def get_trace_correction(spec, image, trace, nchunks=11):
     # Fit a 2D polynomial to the centroids
     P2d = Polynomial2D(4)
     xind, yind = np.indices(centroids.shape)
-    or_fitted_model, _ = or_fit(P2d, xind, yind, centroids)
+    good = centroids != 0.0
+    or_fitted_model, _ = or_fit(P2d, xind[good], yind[good], centroids[good])
     centroids_model = or_fitted_model(xind, yind)
 
     # Calculate the correction using 1D polynomial fits
-    trace_cor = trace * np.nan
+    trace_cor = np.zeros_like(trace)
     P4 = Polynomial1D(4)
     for row in np.arange(len(spec)):
+        if np.all(trace[row] == 0.):
+            continue
         trace_cor[row] = fitter(P4, XK[row], 
                                 centroids_model[row])(np.arange(spec.shape[1]))
 
@@ -1119,6 +1152,8 @@ def measure_fiber_profile(image, spec, trace, chunksize=100, npix=17):
         profile.append([])
         xinterp = np.linspace(-LB, LB, N)
         dx = xinterp[1] - xinterp[0]
+        if np.all(fibert == 0.):
+            continue
         for xind in xinds:
             indl = int(np.max([4, np.min(fibert[xind])-20.]))
             indh = int(np.min([image.shape[0]-4, np.max(fibert[xind])+20.]))
@@ -1179,7 +1214,7 @@ def make_fiber_model_image(image, trace, npix=17):
     # Get the spectra for the image
     spec, err = get_spectra(image, trace, npix=15, full_data=False)
     
-    newspec = get_blaze_spectra(spec)
+    newspec = get_blaze_spectra(spec, knots=25)
     
     model_info = measure_fiber_profile(image, newspec, trace, 
                                        npix=npix, chunksize=50)
@@ -1357,6 +1392,8 @@ def get_wavelength_offset_from_archive(archive_arc, archive_wave, arc_spectra):
 
     # Step 3: Loop through each row (spectral order) and calculate wavelength shifts
     for i in np.arange(len(archive_arc)):
+        if np.all(arc_spectra[i] == 0.):
+            continue
         z = np.log10(archive_arc[i] / archive_cont[i])  
         w = archive_wave[i]  
         dw = np.mean(np.diff(w))  
@@ -1368,12 +1405,12 @@ def get_wavelength_offset_from_archive(archive_arc, archive_wave, arc_spectra):
         step[i] = Info[0][0] * dw  # Convert pixel shift to wavelength shift
 
     # Step 4: Fit a polynomial to the wavelength offsets
-    xind = np.arange(len(step))  
-    fit = fitter(P3, xind, step)  
-    wave_offsets = fit(xind)  
+    xind = np.arange(len(step))
+    or_fitted_model, mask = or_fit(P3, xind, step)  
+    wave_offsets = or_fitted_model(xind)  
 
     # Step 5: Plot the wavelength offset for visualization
-    make_1d_waveoffset_plot(xind, fit, step, folder)
+    make_1d_waveoffset_plot(xind, or_fitted_model, step, folder)
 
     # Step 6: Apply the wavelength offsets to the archived wavelength solution
     W = archive_wave + wave_offsets[:, np.newaxis]  
@@ -1389,7 +1426,7 @@ def get_wavelength_offset_from_archive(archive_arc, archive_wave, arc_spectra):
     newcont = get_continuum(newspectrum, nbins=105, use_filter=True, per=35)
 
     # Step 9: Calculate wavelength offsets in chunks and model the steps
-    corrections = arc_spectra * np.nan  # Initialize corrections array
+    corrections = np.zeros_like(arc_spectra)  # Initialize corrections array
     chunks = 5  # Number of wavelength chunks per order
     steps = np.ones((len(arc_spectra), chunks)) * np.nan  
     wchunk = np.ones((len(arc_spectra), chunks)) * np.nan  
@@ -1397,6 +1434,8 @@ def get_wavelength_offset_from_archive(archive_arc, archive_wave, arc_spectra):
 
     # Step 10: Loop through each spectral order to calculate the step shifts for chunks
     for row in np.arange(len(arc_spectra)):
+        if np.all(arc_spectra[row] == 0.):
+            continue
         normspectrum = np.log10(arc_spectra[row] / cont[row]) 
         normarchive = np.log10(newspectrum[row] / newcont[row])  
         step = np.zeros((chunks,))
@@ -1409,6 +1448,7 @@ def get_wavelength_offset_from_archive(archive_arc, archive_wave, arc_spectra):
             z = chunk2  # Archive spectrum chunk
             w = w1  # Wavelength chunk
             wchunk[row, i] = np.mean(w)  # Store the mean wavelength for the chunk
+
             dw = np.mean(np.diff(w))  # Calculate the wavelength step size
             z1 = chunk1  # New spectrum chunk
             good = np.isfinite(z) * np.isfinite(z1)  # Only use valid data points
@@ -1424,13 +1464,20 @@ def get_wavelength_offset_from_archive(archive_arc, archive_wave, arc_spectra):
 
     # Step 11: Fit a 2D polynomial to the step shifts across all orders and chunks
     xind, yind = np.indices(steps.shape)  
-    or_fitted_model, mask = or_fit(P2d, xind, yind, steps) 
+    good = np.isfinite(steps)
+    or_fitted_model, mask = or_fit(P2d, xind[good], yind[good], steps[good]) 
     steps_model = or_fitted_model(xind, yind)  
-
     # Step 12: Apply the modeled corrections to the wavelength solution
     for row in np.arange(len(arc_spectra)):
+        if np.all(arc_spectra[row] == 0.):
+            continue    
         corrections[row] = fitter(P1, wchunk[row], steps_model[row])(W[row])
-
+    
+    good = np.isfinite(corrections != 0.0)
+    xind, yind = np.indices(corrections.shape)  
+    or_fitted_model, mask = or_fit(P2d, xind[good], yind[good], corrections[good]) 
+    corrections = or_fitted_model(xind, yind) 
+    
     W = W + corrections  # Apply the corrections to the wavelength solution
 
     # Step 13: Plot the 2D wavelength offsets for visualization
@@ -1484,7 +1531,7 @@ def build_master_bias(bias_files, Nrows, Ncols, Bias_section_size):
     # Step 5: Trim the edges of the average bias image
     avg_bias = avg_bias[1:-1, 1:-1]  
     
-    return avg_bias  
+    return avg_bias, f[0].header 
 
 
 def build_master_ff(ff_files, Nrows, Ncols, Bias_section_size, avg_bias):
@@ -1534,7 +1581,7 @@ def build_master_ff(ff_files, Nrows, Ncols, Bias_section_size, avg_bias):
     # Step 6: Compute the average flat-field image using biweight averaging
     avg_ff = biweight(images, axis=0, ignore_nan=True)
     
-    return avg_ff  # Return the final averaged flat-field image
+    return avg_ff, f[0].header  # Return the final averaged flat-field image
 
 
 def build_master_arc(arc_files, Nrows, Ncols, avg_bias):
@@ -1573,7 +1620,7 @@ def build_master_arc(arc_files, Nrows, Ncols, avg_bias):
     # Step 3: Compute the average arc image using biweight averaging
     avg_arc = biweight(images, axis=0, ignore_nan=True)
     
-    return avg_arc  # Return the final averaged arc image
+    return avg_arc, f[0].header  # Return the final averaged arc image
 
 
 def deblaze_spectra(spectra, error, blaze):
@@ -1671,10 +1718,11 @@ def combine_spectrum(spectra, error, ratios, wave, newwave):
     # Interpolate spectra and errors onto the new wavelength grid for each order
     for order in np.arange(wave.shape[0]):
         sel = np.isfinite(spectra[order])
-        newspec[order] = PchipInterpolator(wave[order][sel], spectra[order][sel],
-                                           extrapolate=True)(newwave)
-        newerr[order] = PchipInterpolator(wave[order][sel], error[order][sel],
-                                           extrapolate=True)(newwave)
+        if sel.sum():
+            newspec[order] = PchipInterpolator(wave[order][sel], spectra[order][sel],
+                                               extrapolate=True)(newwave)
+            newerr[order] = PchipInterpolator(wave[order][sel], error[order][sel],
+                                               extrapolate=True)(newwave)
 
     
     # Combine the interpolated spectra using the provided weight ratios
@@ -1685,7 +1733,8 @@ def combine_spectrum(spectra, error, ratios, wave, newwave):
     return combined_spectrum, combined_error
 
 
-def write_spectrum(original, image, image_e, image_m, spectra, error, wave, mask, 
+def write_spectrum(original, image, image_e, image_m,
+                   spectra, error, wave, mask, 
                    combined_wave, combined_error, combined_spectrum, header,
                    filename, data, datae):
     '''
@@ -1772,8 +1821,131 @@ def write_spectrum(original, image, image_e, image_m, spectra, error, wave, mask
     # Write the FITS file to disk, overwriting if the file already exists
     hdulist = fits.HDUList(L)
     hdulist.writeto(name, overwrite=True)
-
     
+def match_trace_to_archive(trace, archive_trace, keyfiber=20, match_col=1900):
+    '''
+    
+
+    Parameters
+    ----------
+    trace : TYPE
+        DESCRIPTION.
+    archive_trace : TYPE
+        DESCRIPTION.
+    keyfiber : TYPE, optional
+        DESCRIPTION. The default is 20.
+    match_col : TYPE, optional
+        DESCRIPTION. The default is 1900.
+
+    Returns
+    -------
+    None.
+
+    '''
+    ref = archive_trace[:, match_col]
+    offset = np.argmin(np.abs(trace[:, match_col] - 
+                       archival_trace[keyfiber, match_col]))
+    log.info('Fiber offset of trace: %i' % (offset - keyfiber))
+    newtrace = np.zeros_like(archive_trace)
+    newtrace[keyfiber] = trace[offset]
+    for j in np.arange(keyfiber)[::-1]:
+        trace_ind =  offset - keyfiber + j
+        if trace_ind > -1:
+            newtrace[j] = trace[trace_ind]
+    for j in np.arange(keyfiber + 1, len(ref)):
+        trace_ind =  offset - keyfiber + j
+        if trace_ind < trace.shape[0]:
+            newtrace[j] = trace[trace_ind]
+    return newtrace
+
+def get_initial_arc_shift(avg_arc, archival_arc):
+    '''
+    Calculates the X and Y offsets between the current and archival arc images
+    using phase cross-correlation.
+
+    Parameters
+    ----------
+    avg_arc : ndarray
+        The averaged arc image to be aligned.
+    archival_arc : ndarray
+        The reference (archival) arc image for alignment.
+
+    Returns
+    -------
+    Info : tuple
+        Contains the X and Y shift values required to align avg_arc to archival_arc.
+    '''
+    
+    # Replace NaN values with 0 in both arc images
+    avg_arc[np.isnan(avg_arc)] = 0.0
+    archival_arc[np.isnan(archival_arc)] = 0.0
+    
+    # Calculate low intensity levels for normalization
+    low_levels = [np.min(avg_arc), np.min(archival_arc)]
+    
+    # Apply log normalization to enhance alignment accuracy
+    avg_arc = np.log10(avg_arc - low_levels[0] + 1.0)
+    archival_arc = np.log10(archival_arc - low_levels[1] + 1.0)
+    
+    # Compute cross-correlation to find the X, Y offsets
+    Info = phase_cross_correlation(avg_arc, archival_arc, normalization=None, 
+                                   upsample_factor=10)
+    
+    # Log the calculated offsets
+    log.info('X,Y Offsets from Calibration: %0.1f, %0.1f' % 
+             (Info[0][0], Info[0][1]))
+    
+    return Info
+
+def plot_trace(full_trace, trace, x, orders):
+    '''
+    Plots the residuals of the trace correction and saves the figure.
+
+    Parameters
+    ----------
+    trace_cor : 2D ndarray
+        The array of trace correction residuals to be plotted.
+    name : str
+        A name or identifier used for saving the plot.
+
+    Returns
+    -------
+    None.
+
+    '''
+    X = np.arange(full_trace.shape[1])
+    
+    # Create a figure with specified size
+    plt.figure(figsize=(8, 7))
+    
+    colors = plt.get_cmap('Set2')(np.linspace(0, 1, len(orders)))
+    for order, color in zip(orders, colors):
+        mean_trace = np.mean(full_trace[order])
+        plt.scatter(x, trace[order] - mean_trace, color='k', edgecolor='k',
+                    s=30,)
+        plt.scatter(x, trace[order] - mean_trace, color=color, edgecolor='k',
+                    s=20, alpha=0.5)
+        plt.plot(X, full_trace[order] - mean_trace, color=color, lw=1, 
+                 label='Order: %i' % (order+1))
+
+    plt.legend()
+        
+    # Adjust the appearance of the ticks on both axes
+    ax = plt.gca()
+    ax.tick_params(axis='both', which='both', direction='in', zorder=3)
+    ax.tick_params(axis='y', which='both', left=True, right=True)
+    ax.tick_params(axis='x', which='both', bottom=True, top=True)
+    ax.tick_params(axis='both', which='major', length=8, width=2)
+    ax.tick_params(axis='both', which='minor', length=4, width=1)
+    ax.minorticks_on()
+
+    # Label the axes
+    plt.xlabel('Column')
+    plt.ylabel('Trace - Mean(Trace)')
+
+    # Save the plot as a PNG file with the given name
+    plt.savefig(op.join(reducfolder, 'trace_measures.png'))
+
 def plot_trace_offset(trace_cor, name):
     '''
     Plots the residuals of the trace correction and saves the figure.
@@ -1847,6 +2019,10 @@ parser.add_argument("-fae", "--full_aperture_extraction",
                     action="count", default=0)
 
 parser.add_argument("-fw", "--fit_wave",
+                    help='''Fit the wavelength solution''',
+                    action="count", default=0)
+
+parser.add_argument("-ft", "--fit_trace",
                     help='''Fit the wavelength solution''',
                     action="count", default=0)
 
@@ -1932,6 +2108,9 @@ Nrows = 2048
 Bias_section_size = 32
 gain=0.584
 readnoise=3.06
+fiber_model_thresh = 1000
+trace_order = 4
+trace_ncolumns = 250
 
 # =============================================================================
 # 3. Master Bias Creation
@@ -1940,9 +2119,9 @@ log.info('Building Master Bias')
 bias_files = [filename for filename, name in zip(filenames, names) 
               if name.lower() == args.bias_label]
 
-avg_bias = build_master_bias(bias_files, Nrows, Ncols, Bias_section_size)
+avg_bias, header = build_master_bias(bias_files, Nrows, Ncols, Bias_section_size)
 
-fits.PrimaryHDU(avg_bias, header=f[0].header).writeto(op.join(reducfolder,
+fits.PrimaryHDU(avg_bias, header=header).writeto(op.join(reducfolder,
                                                      'bias_image.fits'), 
                                                       overwrite=True)
 
@@ -1954,8 +2133,8 @@ log.info('Building Master Flat Frame')
 ff_files = [filename for filename, name in zip(filenames, names) 
               if name.lower() == args.flat_label]
 
-avg_ff = build_master_ff(ff_files, Nrows, Ncols, Bias_section_size, avg_bias)
-fits.PrimaryHDU(avg_ff, header=f[0].header).writeto(op.join(reducfolder,
+avg_ff, header = build_master_ff(ff_files, Nrows, Ncols, Bias_section_size, avg_bias)
+fits.PrimaryHDU(avg_ff, header=header).writeto(op.join(reducfolder,
                                                             'ff_image.fits'), 
                                                     overwrite=True)
 
@@ -1964,46 +2143,76 @@ fits.PrimaryHDU(avg_ff, header=f[0].header).writeto(op.join(reducfolder,
 # =============================================================================
 log.info('Building Mask Frame')
 mask = make_mask(avg_ff)
-fits.PrimaryHDU(mask, header=f[0].header).writeto(op.join(reducfolder,
+fits.PrimaryHDU(mask).writeto(op.join(reducfolder,
                                                           'mask_image.fits'), 
                                                   overwrite=True)
 
 # =============================================================================
-# 6. Get Trace
+# 6. Run cross-correlation with arc_image to get initial shifts
+# =============================================================================
+log.info('Building Arc Frame and Getting Initial X, Y Shift')
+arc_files = [filename for filename, name in zip(filenames, names) 
+              if name.lower() == args.arc_label]
+
+avg_arc, header = build_master_arc(arc_files, Nrows, Ncols, avg_bias)
+archival_arc = fits.open(op.join(configfolder, 'arc_image.fits'))[0].data
+
+Info = get_initial_arc_shift(avg_arc, archival_arc)
+
+
+# =============================================================================
+# 7. Get Trace
 # =============================================================================
 log.info('Measuring the Trace from the Flat Frame')
-full_trace, trace, x = get_trace(avg_ff)
-fits.PrimaryHDU(full_trace, header=f[0].header).writeto(op.join(reducfolder,
+archival_trace = fits.open(op.join(configfolder, 'trace_image.fits'))[0].data
+# Add initial offset for the trace
+archival_trace = archival_trace + Info[0][0]
+full_trace, trace, x = get_trace(avg_ff, N=trace_ncolumns, order=trace_order)
+back, orig = get_scattered_light(avg_ff, full_trace, mask)
+full_trace, trace, x = get_trace(avg_ff-back, N=trace_ncolumns, 
+                                 order=trace_order)
+
+M = int(full_trace.shape[0] / 2.)
+plot_trace(full_trace, trace, x, orders=[2, M, full_trace.shape[0]-3])
+
+# Match trace to archive
+full_trace = match_trace_to_archive(full_trace, archival_trace)
+fits.HDUList([fits.PrimaryHDU(full_trace),
+              fits.ImageHDU(trace), fits.ImageHDU(x)]).writeto(op.join(reducfolder,
                                                         'trace_image.fits'), 
                                                   overwrite=True)
 
 # =============================================================================
-# 7. Flat Field Correction
+# 8. Flat Field Correction
 # =============================================================================
 log.info('Creating the 2D Flat Field')
 back, orig = get_scattered_light(avg_ff, full_trace, mask)
+spectra, err = get_spectra(avg_ff - back, full_trace)
+fits.PrimaryHDU(spectra).writeto(op.join(reducfolder, 'ff_spectra.fits'), 
+                                                    overwrite=True)
 model = make_fiber_model_image(avg_ff - back, full_trace, npix=21)
+low_level_pixels = (model > 0.) * (model < fiber_model_thresh)
 M = make_mask_for_trace(avg_ff, full_trace, picket_height=17, picket_bias=-8)
 outside_trace_sel = M == 0.
 flat = (avg_ff - back) / model
-flat = flat / biweight(flat[~outside_trace_sel], ignore_nan=True)
+flat = normalize_aperture(flat, full_trace, picket_height=17, picket_bias=-8)
 flat[outside_trace_sel] = 1.
 flat[mask > 0.] = np.nan
-fits.PrimaryHDU(flat, header=f[0].header).writeto(op.join(reducfolder,
-                                                          'ff_model.fits'), 
+
+fits.PrimaryHDU(flat).writeto(op.join(reducfolder,'ff_model.fits'), 
                                                     overwrite=True)
 
 # =============================================================================
-# 8. Make Master Arc Image and Spectra
+# 9. Make Master Arc Image and Spectra
 # =============================================================================
 log.info('Building the Master Arc Frame and Spectra')
 arc_files = [filename for filename, name in zip(filenames, names) 
               if name.lower() == args.arc_label]
 
-avg_arc = build_master_arc(arc_files, Nrows, Ncols, avg_bias)
+avg_arc, header = build_master_arc(arc_files, Nrows, Ncols, avg_bias)
 back, orig = get_scattered_light(avg_arc, full_trace, mask)
 
-fits.PrimaryHDU(avg_arc, header=f[0].header).writeto(op.join(reducfolder,
+fits.PrimaryHDU(avg_arc, header=header).writeto(op.join(reducfolder,
                                                              'arc_image.fits'), 
                                                     overwrite=True)
 
@@ -2012,12 +2221,12 @@ arc_cont = get_continuum(arc_spectra, nbins=105, use_filter=True, per=35)
 
 
 # =============================================================================
-# 9. Fitting the Arc Spectra for Wavelength Solution
+# 10. Fitting the Arc Spectra for Wavelength Solution
 # =============================================================================
 
 fitter = LevMarLSQFitter()
 or_fit = FittingWithOutlierRemoval(fitter, sigma_clip,
-                                   niter=3, sigma=3.0)
+                                   niter=3, sigma=5.0)
 P2 = Polynomial1D(2)
 P1 = Polynomial1D(1)
 P3 = Polynomial1D(3)
@@ -2059,6 +2268,9 @@ back, orig = get_scattered_light(avg_ff, full_trace, mask)
 ff_spectra, ff_err = get_spectra((avg_ff - back) / flat, full_trace, npix=15)
 ff_cont = get_continuum(ff_spectra, use_filter=True, per=50)
 blaze = ff_cont / np.nanmedian(ff_cont)
+fits.PrimaryHDU(blaze).writeto(op.join(reducfolder,
+                                                             'blaze_spectra.fits'), 
+                                                    overwrite=True)
 ratios = get_weights_for_combine(ff_spectra, wave, combined_wave)
 
 
@@ -2108,11 +2320,13 @@ for filename in sci_files:
         model = (error-smooth_error) / error
         model[:, :10] = 0.0
         model[:, -10:] = 0.0
+        cosmic_model = model * 1.
         model = np.array((model > 0.5))
         model = convolve(model, Box2DKernel(2))
         total_mask = mask + (model > 0.05) # Update mask to include cosmic ray pixels
     else:
         total_mask = mask
+        cosmic_model = None
 
     if mask_fill:  # If mask filling is enabled
         log.info('Filling masked pixels in image for %s' % basename)
@@ -2146,12 +2360,15 @@ for filename in sci_files:
         combined_err = combined_err / cont[0]
     
     # Write the final spectrum and associated data to a file
-    write_spectrum(original, image, error, total_mask, spec, err, wave, mask, 
+    write_spectrum(original, image, error, total_mask,
+                   spec, err, wave, mask, 
                    combined_wave, combined_err, combined_spectrum, 
                    f[0].header, filename, data, datae)
 
     
 # More examples
-# ff_model flag for too low of signal.
-# Write out the full extraction if called
-# update the header words
+# ff_model flag for too low of signal. (new fiber issue)
+# Robust second trace effort
+# Need to look at the trace issue and identifying the trace
+# Cosmic Ray Rejection still not great
+# For trace: ID ref fibers, track one fiber at a time, fit trace, plot trace
