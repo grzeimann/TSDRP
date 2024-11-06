@@ -13,12 +13,19 @@ git clone https://github.com/grzeimann/TSP.git
 ### Prerequisites
 Ensure you have the following installed:
 - Python 3.x
+- Numpy v1.24+
+- Scipy v1.11+
+- Astropy v5.3+
+- Matplotlib v3.7+
+- Scikit-image v0.20+
+- Seaborn v0.12+
 - Required libraries (listed below)
 
 ### Required Libraries
 ```bash
 pip install numpy scipy matplotlib astropy scikit-image seaborn
 ```
+
 
 ### Optional Libraries (Suggested)
 To fill in masked values we use Pieter van Dokkum's maskfill.  The description can be found in van Dokkum & Pasha (2024) (PASP).
@@ -92,7 +99,7 @@ Calibration products from the night are stored in the 'reduce' folder. This fold
 
 ### Product Descriptions
 
-
+This code generates a multi-frame FITS file in the "reduce" folder. This file includes various data frames: the original image, the cleaned (bias-subtracted, bad pixel filled) image, the error frame, the binary mask, the spectra for each order, the error associated with each order, and the wavelength calibration for each order. Additionally, the file contains combined data, including the flattened (or merged) wavelength solution, spectrum, and associated errors. If the full_aperture_extraction flag is enabled, the complete spectra for each aperture and their corresponding errors are also appended to the file.
 
 
 ## Key Tasks
@@ -114,7 +121,7 @@ Calibration products from the night are stored in the 'reduce' folder. This fold
    - The mask frame is saved as a FITS file (mask_image.fits).
 
 6. **Trace Measurement**
-   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a high-resolution full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
+   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
    - The trace information is saved as a FITS file (trace_image.fits).
 
 7. **Scattered Light**
