@@ -108,13 +108,15 @@ This code generates a multi-frame FITS file in the "reduce" folder. This file in
 
   - Image dimensions (`Nrows`, `Ncols`), bias section size, and instrument parameters such as `gain` and `readnoise` are configurations you can set in the script.
 
-3. **Master Bias Creation**
-   - The build_master_bias function creates a master bias image by averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
-   - The master bias frame is saved as a FITS file (bias_image.fits).
+2. **Master Bias Creation**
+  - The build_master_bias function creates a master bias image by averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
+
+  - The master bias frame is saved as a FITS file (bias_image.fits).
 
 4. **Master Flat Creation**
-   - The build_master_ff function generates a master flat-field image by averaging multiple flat-field frames, after subtracting a master bias and removing a designated bias section. It takes as inputs a list of flat-field file paths (ff_files), the number of rows (Nrows), columns (Ncols), the size of the bias section to exclude (Bias_section_size), and the precomputed master bias image (avg_bias). Each flat-field image is loaded, the bias is removed from the specified section, and only the relevant columns are retained. The images are then edge-trimmed, the master bias is subtracted, and the function uses robust biweight averaging to create the final master flat-field image (avg_ff).
-   - The master flat frame is saved as a FITS file (ff_image.fits).
+  - The build_master_ff function generates a master flat-field image by averaging multiple flat-field frames, after subtracting a master bias and removing a designated bias section. It takes as inputs a list of flat-field file paths (ff_files), the number of rows (Nrows), columns (Ncols), the size of the bias section to exclude (Bias_section_size), and the precomputed master bias image (avg_bias). Each flat-field image is loaded, the bias is removed from the specified section, and only the relevant columns are retained. The images are then edge-trimmed, the master bias is subtracted, and the function uses robust biweight averaging to create the final master flat-field image (avg_ff).
+  
+  - The master flat frame is saved as a FITS file (ff_image.fits).
 
 5. **Mask Frame Creation**
    - The make_mask function generates a binary mask for an input image, marking specified columns and an optional "picket fence" region for exclusion, based on given height and bias parameters.
