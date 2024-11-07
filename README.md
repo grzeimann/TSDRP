@@ -123,8 +123,11 @@ This code generates a multi-frame FITS file in the "reduce" folder. This file in
    - The mask frame is saved as a FITS file (mask_image.fits).
 
 6. **Trace Measurement**
-   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a full_trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
+   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a full trace across all columns, along with the trace data per chunk and the averaged x-coordinates.
    - The trace information is saved as a FITS file (trace_image.fits).
+<p align="center">
+  <img src="images/trace_example.png" width="650"/>
+</p>
 
 7. **Scattered Light**
    - The get_scattered_light function estimates and removes scattered light from an image by performing percentile filtering, smoothing, and interpolation, followed by row-wise polynomial fitting. It begins by scanning each column to extract low-level background values through percentile filtering, which are then smoothed with a Gaussian kernel. After applying a mask from task 5, the function uses interpolation and a polynomial fit to create a smooth model of scattered light across the image, producing a refined scattered light profile (scattered_light) and a raw version (S) before the polynomial fit.
