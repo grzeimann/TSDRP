@@ -109,7 +109,7 @@ This code generates a multi-frame FITS file in the "reduce" folder. This file in
    - Image dimensions (`Nrows`, `Ncols`), bias section size, and instrument parameters such as `gain` and `readnoise` are configurations you can set in the script.
 
 2. **Master Bias Creation**
-   - The build_master_bias function creates a master bias image by averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
+   - The build_master_bias function creates a master bias image by biweight averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
 
    - The master bias frame is saved as a FITS file (bias_image.fits).
 
