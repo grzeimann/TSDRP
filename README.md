@@ -118,7 +118,7 @@ readnoise = 3.06  # Read noise of the detector in electrons (e-)
 fiber_model_thresh = 250  # Threshold for fiber model fitting (arbitrary units)
 trace_order = 4  # Polynomial order used for tracing the fiber paths
 trace_ncolumns = 250  # Number of columns used for fiber tracing
-flat_line_list = [  # Wavelengths (in Ångströms) of emission lines used for flat-fielding
+flat_line_list = [  # Wavelengths (in Ångströms) of emission lines in the flat-field
     3679.9, 3705.6, 3719.9, 3722.6, 3733.3, 3734.9, 3737.1,
     3745.6, 3748.3, 3820.5, 3824.4, 3856.4, 3859.9, 3878.6,
     3886.3, 3899.7, 3922.9, 3927.9, 3930.3, 3944.1, 3961.6,
