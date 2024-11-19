@@ -128,12 +128,12 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
 
 ```
 
-2. **Master Bias Creation**
+2. **Master Bias Frame**
    - The build_master_bias function creates a master bias image by biweight averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
 
    - The master bias frame is saved as a FITS file (bias_image.fits).
 
-4. **Master Flat Creation**
+4. **Master Flat Frame**
    - The build_master_ff function generates a master flat-field image by averaging multiple flat-field frames, after subtracting a master bias and removing a designated bias section. It takes as inputs a list of flat-field file paths (ff_files), the number of rows (Nrows), columns (Ncols), the size of the bias section to exclude (Bias_section_size), and the precomputed master bias image (avg_bias). Each flat-field image is loaded, the bias is removed from the specified section, and only the relevant columns are retained. The images are then edge-trimmed, the master bias is subtracted, and the function uses robust biweight averaging to create the final master flat-field image (avg_ff).
   
    - The master flat frame is saved as a FITS file (ff_image.fits).
@@ -150,7 +150,9 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
 </p>
 
 7. **Scattered Light**
-   - The get_scattered_light function estimates and removes scattered light from an image by performing percentile filtering, smoothing, and interpolation, followed by row-wise polynomial fitting. It begins by scanning each column to extract low-level background values through percentile filtering, which are then smoothed with a Gaussian kernel. After applying a mask from task 5, the function uses interpolation and a polynomial fit to create a smooth model of scattered light across the image, producing a refined scattered light profile (scattered_light) and a raw version (S) before the polynomial fit.
+   - There are two functions that can calculate the scattered light in a frame
+   - The *spline_background* function estimates the background of a 2D image by iteratively fitting splines to the pixel data. The function processes the a masked image (order traces are masked with a specified width) column-wise by isolating each column's pixel values, identifying valid (non-zero) data points, and fitting a 1D spline model to these points. The spline fitting process involves removing outliers—data points significantly deviating from the fitted spline and refining the fit using updated knot positions. The refined fit is stored as the column’s contribution to the background. Once the column-wise fitting is complete, the function processes the column-wise background model row-wise to further smooth the background model. Using the same outlier rejection and spline fitting approach, it smooths the background estimates along the rows. The final result is a 2D array representing the estimated background, ready for subtraction or analysis.
+   - The *get_scattered_light* function estimates and removes scattered light from an image by performing percentile filtering, smoothing, and interpolation, followed by row-wise polynomial fitting. It begins by scanning each column to extract low-level background values through percentile filtering, which are then smoothed with a Gaussian kernel. After applying a mask from task 5, the function uses interpolation and a polynomial fit to create a smooth model of scattered light across the image, producing a refined scattered light profile (scattered_light) and a raw version (S) before the polynomial fit.
 
 8. **Flat-Field Correction**
    - This section of the code generates a 2D flat-field correction image by estimating and removing scattered light, modeling fiber spectra, dividing that smooth 2D model, normalizing the resultant product to 1 due to mismatch between model image and the actually data, and masking regions outside the trace to 1.
