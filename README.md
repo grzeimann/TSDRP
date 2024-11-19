@@ -35,7 +35,7 @@ pip install maskfill
 
 ## Usage
 ```python
-usage: python reduction.py [-h] [-ea EXTRACTION_APERTURE] [-we] [-fae] [-fw] [-drc]
+usage: python reduction.py [-h] [-ea EXTRACTION_APERTURE] [-fae] [-fw] [-drc]
                     [-dcn] [-bl BIAS_LABEL] [-al ARC_LABEL] [-fl FLAT_LABEL]
                     folder rootdir
 
