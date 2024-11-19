@@ -104,9 +104,29 @@ This code generates a multi-frame FITS file in the "reduce" folder. This file in
 ## Key Tasks
 
 1. **Configuration Values**
-   - The code defines several command-line argument options for configuring spectrum extraction and data processing. The folder argument specifies the folder for reduction and is required, accepting a string value. Similarly, the rootdir argument, also required and a string, designates the base directory for raw data. For customizing the extraction aperture size, the -ea or --extraction_aperture argument takes an integer with a default value of 11. To extract spectra using fiber profile weights, the -we or --weighted_extraction option can be used.  Another option, -fae or --full_aperture_extraction, returns the full aperture of the spectrum interpolated to a uniform grid rather than collapsing it into a 1D array for each order. For wavelength solution fitting, -fw or --fit_wave can be applied. Lastly, the -cr or --cosmic_rejection option provides cosmic rejection during wavelength fitting. Together, these options allow for detailed control over data processing and spectrum extraction within the specified directory and folder structure.
+   - The code defines several command-line argument options for configuring spectrum extraction and data processing. The folder argument specifies the folder for reduction and is required, accepting a string value. Similarly, the rootdir argument, also required and a string, designates the base directory for raw data. For customizing the extraction aperture size, the -ea or --extraction_aperture argument takes an integer with a default value of 11.  Another option, -fae or --full_aperture_extraction, returns the full aperture of the spectrum interpolated to a uniform grid rather than collapsing it into a 1D array for each order. For wavelength solution fitting, -fw or --fit_wave can be applied. Lastly, the -cr or --cosmic_rejection option provides cosmic rejection during wavelength fitting. Together, these options allow for detailed control over data processing and spectrum extraction within the specified directory and folder structure.
 
-   - Image dimensions (`Nrows`, `Ncols`), bias section size, and instrument parameters such as `gain` and `readnoise` are configurations you can set in the script.
+```python
+# =============================================================================
+# Configuration values
+# =============================================================================
+Ncols = 2048  # Number of columns in the detector (pixels)
+Nrows = 2048  # Number of rows in the detector (pixels)
+Bias_section_size = 32  # Width of the overscan region (pixels) used for bias correction
+gain = 0.584  # Conversion factor from electrons to ADU (Analog-to-Digital Units)
+readnoise = 3.06  # Read noise of the detector in electrons (e-)
+fiber_model_thresh = 250  # Threshold for fiber model fitting (arbitrary units)
+trace_order = 4  # Polynomial order used for tracing the fiber paths
+trace_ncolumns = 250  # Number of columns used for fiber tracing
+flat_line_list = [  # Wavelengths (in Ångströms) of emission lines used for flat-fielding
+    3679.9, 3705.6, 3719.9, 3722.6, 3733.3, 3734.9, 3737.1,
+    3745.6, 3748.3, 3820.5, 3824.4, 3856.4, 3859.9, 3878.6,
+    3886.3, 3899.7, 3922.9, 3927.9, 3930.3, 3944.1, 3961.6,
+    5890.04, 5896.0
+]
+flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field emission lines
+
+```
 
 2. **Master Bias Creation**
    - The build_master_bias function creates a master bias image by biweight averaging multiple bias frames while subtracting overscan values from a overscan region of each image. The function takes in a list of file paths to bias images (bias_files), the number of rows (Nrows), columns (Ncols), and the size of the overscan section to exclude (Bias_section_size). The function loads each image, removes the bias calculated from the specified section, and retains only the relevant columns. It then computes the average bias image using a robust biweight averaging method and trims the edges. The result is a 2D array (avg_bias) representing the cleaned and averaged master bias image.
