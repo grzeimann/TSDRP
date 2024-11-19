@@ -154,42 +154,39 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
    - The *spline_background* function estimates the background of a 2D image by iteratively fitting splines to the pixel data. The function processes the a masked image (order traces are masked with a specified width) column-wise by isolating each column's pixel values, identifying valid (non-zero) data points, and fitting a 1D spline model to these points. The spline fitting process involves removing outliers—data points significantly deviating from the fitted spline and refining the fit using updated knot positions. The refined fit is stored as the column’s contribution to the background. Once the column-wise fitting is complete, the function processes the column-wise background model row-wise to further smooth the background model. Using the same outlier rejection and spline fitting approach, it smooths the background estimates along the rows. The final result is a 2D array representing the estimated background, ready for subtraction or analysis.
    - The *get_scattered_light* function estimates and removes scattered light from an image by performing percentile filtering, smoothing, and interpolation, followed by row-wise polynomial fitting. It begins by scanning each column to extract low-level background values through percentile filtering, which are then smoothed with a Gaussian kernel. After applying a mask from task 5, the function uses interpolation and a polynomial fit to create a smooth model of scattered light across the image, producing a refined scattered light profile (scattered_light) and a raw version (S) before the polynomial fit.
 
-8. **Flat-Field Correction**
-   - This section of the code generates a 2D flat-field correction image by estimating and removing scattered light, modeling fiber spectra, dividing that smooth 2D model, normalizing the resultant product to 1 due to mismatch between model image and the actually data, and masking regions outside the trace to 1.
-   - The code starts by retrieving the scattered light background get_scattered_light().
-   - Next, it creates a fiber model image (model) after subtracting the scattered light from the average flat field (avg_ff). The make_fiber_model_image function generates a model image of smoothed fiber spectra for flat-fielding purposes by extracting and fitting fiber profiles across the input image. It uses fiber trace locations, a specified extraction window, and calculated weights to assemble a "smooth" 2D model image where fiber patterns are smoothed, excluding edge fibers to avoid boundary artifacts. This output model image can then serve as a flat-field correction reference.
-   - A mask is then generated to identify regions outside the trace (outside_trace_sel). The flat field is computed by dividing avg_ff minus the background by the model image and then normalized using the biweight of the selected regions. Masked and non-relevant areas are set to 1 (outside of the trace) or NaN (masked regions), and the final flat field is saved as a FITS file named ff_model.fits.
-
-9. **Master Arc Image and Spectra Creation**
+8. **Master Arc Image and Spectra Creation**
    - Build the master arc frame from arc calibration files.
    - Extract arc spectra.
    - Save the master arc frame and arc spectra.
      
-10. **Fit Wavelength Solution**
+9. **Fit Wavelength Solution**
       - The fit_wavelength_solution function computes and saves a wavelength calibration for a given 2D array of spectra by matching observed arc lines to known reference wavelengths. It begins by normalizing the spectra using a continuum and then iteratively analyzes each spectral order (excluding the edges) to locate arc peaks, adjusting for offsets based on reference data. A polynomial fit is applied to these offsets to derive a wavelength solution for each order. The function further refines this solution by applying corrections based on observed peak locations. Finally, it saves the resulting wavelength solution along with the original spectra as a FITS file (arc_spectra.fits).
       - The is run if the option --fit_wave is set.  This task is really for generating the arc_spectra.fits for relevant setups and probably won't be run by users unless the wavelength solution starting points are just too far off.
 
-11. **Load Wavelength Solution**
+10. **Load Wavelength Solution**
       - Load the wavelength solution for the input setup from an archived file (arc_spectra.fits).
 
-12. **Adjust Wavelength Solution**
+11. **Adjust Wavelength Solution**
       - Since step 10 is not often run by the user, the starting wavelength solution may be off from the night's reduction.  Here we adjust the wavelenth solution for the night.
       - The get_wavelength_offset_from_archive function calculates and applies wavelength offsets to a new set of arc spectra by comparing them with archived arc spectra and their corresponding wavelength solutions. It begins by computing the continuum for both archived and new spectra, followed by a loop that calculates pixel shifts between the spectra using phase cross-correlation. A polynomial fit is then applied to the computed offsets, and these offsets are added to the archived wavelength solution. The function also interpolates the archived spectra to match the corrected wavelengths and computes wavelength offsets in chunks to refine the corrections. Finally, it visualizes the offsets and returns the corrected wavelength solution as a 2D array. The plot of the wavelenth correction is in the reduction folder.
+   
+12. **Flat-Field Correction**
+      - This routine performs a flat field correction, processing a 2D flat field image (avg_ff) through several steps. Initially, it estimates and removes the background using a mask and spline fitting (spline_background), saving the background-subtracted image. The spectra are extracted from the corrected flat field, and a wavelength image is generated for calibration purposes. Next, the code models fiber profiles across the flat field constructing a 2D model image including spectral lines. A "ghost image" of overlapping spectral features is modeled and subtracted to refine the trace of fibers in the image. The trace is further adjusted to match archival data, and any shifts in ghost order positions are logged.  The fiber model is rebuilt using the refined trace. The "ghost image" is calculated and subtracted a second time from the original image, refining the flat field model further. Finally, the corrected flat field image is normalized against the model to produce a flat field correction image. This output is processed to handle pixel to pixel variations, fringing effects, and saved for use in subsequent reductions.
 
-12. **Combined Wavelength for Rectification**
+13. **Combined Wavelength for Rectification**
       - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
       - This code computes a new wavelength array by first taking the logarithm of the input wavelength array, determining the minimum and maximum logarithmic values, calculating the median step size between the logarithmic values, and then generating a specified number of steps based on these values; finally, it exponentiates the linearly spaced logarithmic values to obtain the combined wavelength array.
 
-13. **Deblazing and Combining Orders**
+14. **Deblazing and Combining Orders**
     - Calculate the blaze function to correct for the instrument’s spectral response from the flat-field spectra.
     - Generate weights for combining spectral orders using blaze-corrected flat-field spectra.
     - The combine_spectrum function combines multiple spectra into a single spectrum through weighted averaging. It first interpolates the individual spectra and their associated errors onto a specified new wavelength grid using piecewise cubic Hermite interpolation. Then, it calculates the combined spectrum by summing the weighted interpolated spectra and propagates the uncertainties to compute the combined error, returning both the resulting spectrum and its associated error.
    
-14. **Cosmic Ray Detection**
+15. **Cosmic Ray Detection**
     - We use a new but robust approach for cosmic ray detection.
     - This code first computes a smoothed version of the error array using a median filter of width ~10 for each row. It then creates a binary model indicating where the error frame significantly exceeds the smoothed error frame by normalizing the difference and setting values outside a specific range to zero. The model is convolved with a 2D box kernel to expand the detection of outliers, which are cosmic rays, and updates the total mask by combining the existing mask with newly identified problematic pixels.
 
-14. **Science Frame Reduction**
+16. **Science Frame Reduction**
     - The script reduces science frames by applying bias, scattered light, and flat-field corrections.
     - It then extracts spectra and corrects the trace.
     - Optionally, the script detects cosmic rays and fills masked pixels.
