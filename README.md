@@ -115,7 +115,7 @@ Nrows = 2048  # Number of rows in the detector (pixels)
 Bias_section_size = 32  # Width of the overscan region (pixels) used for bias correction
 gain = 0.584  # Conversion factor from electrons to ADU (Analog-to-Digital Units)
 readnoise = 3.06  # Read noise of the detector in electrons (e-)
-fiber_model_thresh = 250  # Threshold for fiber model fitting (arbitrary units)
+fiber_model_thresh = 250  # Threshold for low fiber flat model pixels (flat_field = 1. for model < thresh)
 trace_order = 4  # Polynomial order used for tracing the fiber paths
 trace_ncolumns = 250  # Number of columns used for fiber tracing
 flat_line_list = [  # Wavelengths (in Ångströms) of emission lines in the flat-field
