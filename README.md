@@ -179,6 +179,12 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
    
 12. **Flat-Field Correction**
       - This routine performs a flat field correction, processing a 2D flat field image (avg_ff) through several steps. Initially, it estimates and removes the background using a mask and spline fitting (spline_background), saving the background-subtracted image. The spectra are extracted from the corrected flat field, and a wavelength image is generated for calibration purposes. Next, the code models fiber profiles across the flat field constructing a 2D model image including spectral lines. A "ghost image" of overlapping spectral features is modeled and subtracted to refine the trace of fibers in the image. The trace is further adjusted to match archival data, and any shifts in ghost order positions are logged.  The fiber model is rebuilt using the refined trace. The "ghost image" is calculated and subtracted a second time from the original image, refining the flat field model further. Finally, the corrected flat field image is normalized against the model to produce a flat field correction image. This output is processed to handle pixel to pixel variations, fringing effects, and saved for use in subsequent reductions.
+   
+<p align="center">
+  <img src="images/flat_field_visual.png" width="650"/>
+  
+  <em>The top panel displays the average flat frame. Below it, the second panel shows the "picket fence" model that has been subtracted. The third panel illustrates the 2D flat frame model, which serves as the divisor for creating the final product shown in the fourth panel, the 2D flat field. This 2D flat field is used to correct science frames for pixel-to-pixel variations and fringing effects. All features visible in the images represent actual detector characteristics.</em>
+</p>
 
 13. **Combined Wavelength for Rectification**
       - Compute a combined wavelength grid for rectification using logarithmic steps across the wavelength range.
