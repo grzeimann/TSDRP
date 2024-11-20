@@ -171,7 +171,7 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
       - The get_wavelength_offset_from_archive function calculates and applies wavelength offsets to a new set of arc spectra by comparing them with archived arc spectra and their corresponding wavelength solutions. It begins by computing the continuum for both archived and new spectra, followed by a loop that calculates pixel shifts between the spectra using phase cross-correlation. A polynomial fit is then applied to the computed offsets, and these offsets are added to the archived wavelength solution. The function also interpolates the archived spectra to match the corrected wavelengths and computes wavelength offsets in chunks to refine the corrections. Finally, it visualizes the offsets and returns the corrected wavelength solution as a 2D array. The plot of the wavelenth correction is in the reduction folder.
 
 <p align="center">
-  <img src="images/wave_offset_1D.png.png" width="650"/>
+  <img src="images/wave_offset_1D.png" width="650"/>
   <em>This plot shows the initial wavelength offset as a function of order for one night's data.  Note this data was in a different setup than the archived file but the pipeline still found the offset versus order</em>
 </p>
 
