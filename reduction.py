@@ -20,12 +20,14 @@ from astropy.convolution import Box1DKernel, Gaussian1DKernel, convolve
 from astropy.convolution import Box2DKernel
 from astropy.io import fits
 from astropy.modeling.fitting import FittingWithOutlierRemoval, LevMarLSQFitter
+from astropy.modeling.fitting import TRFLSQFitter
 from astropy.modeling.models import Polynomial1D, Polynomial2D, Gaussian1D
-from astropy.modeling.models import Const1D, Spline1D
+from astropy.modeling.models import Const1D, Spline1D, Voigt1D, Trapezoid1D
 from astropy.modeling.fitting import SplineExactKnotsFitter
 from astropy.stats import biweight_location as biweight
 from astropy.stats import mad_std, sigma_clip
 from astropy.table import Table
+from astropy.visualization import AsinhStretch, ImageNormalize
 from distutils.dir_util import mkpath
 from scipy.ndimage import percentile_filter
 from scipy.interpolate import interp1d, LinearNDInterpolator
@@ -111,10 +113,12 @@ def get_continuum(spectra, nbins=25, use_filter=False, per=5):
         
         # Optionally apply a percentile filter for smoothing
         if use_filter:
+            sel = np.isfinite(spectra[i])
             v = int(spectra.shape[1] / nbins)
             if v % 2 == 0:
                 v += 1  # Ensure window size is odd for filtering
-            cont[i] = percentile_filter(spectra[i], per, v)
+            cont[i][sel] = percentile_filter(spectra[i][sel], per, v)
+            cont[i][~sel] = np.interp(X[~sel], X[sel], cont[i][sel])
             # Extrapolate edges of the filter
             p0 = np.polyfit(X[v:2*v], cont[i][v:2*v], 2)
             p1 = np.polyfit(X[-2*v:-v], cont[i][-2*v:-v], 2)
@@ -346,7 +350,7 @@ def get_spectra(array_flt, array_trace, error_array=None, npix=11,
     return spec, error
 
 
-def get_scattered_light(image, trace, mask, percentile=3, order=6):
+def get_scattered_light(image, mask, percentile=3, order=6):
     '''
     Estimate the scattered light in an image using percentile filtering, 
     convolution, and interpolation, followed by polynomial fitting.
@@ -631,12 +635,40 @@ def get_trace(image, N=25, low=10, high=1850, order=7, keyorder=20):
     for i in np.arange(trace.shape[0]):
         full_trace[i] = np.polyval(np.polyfit(x, trace[i, :], order), X)
     
-    return full_trace, trace, x  # Return completed trace arrays
+    P2d = Polynomial2D(order)
+    Z = np.diff(full_trace, axis=0)
+    Y = full_trace[:-1] / 2. + full_trace[1:] / 2.
+    D, X = np.indices(full_trace[1:].shape)
+    fitter = LevMarLSQFitter()
+    or_fit = FittingWithOutlierRemoval(fitter, sigma_clip,
+                                       niter=3, sigma=5.0)
+    or_fitted_model, mask = or_fit(P2d, X, Y, Z) 
+    corrections = or_fitted_model(X, Y) 
+    tracek = np.zeros_like(full_trace)
+    tracek[keyorder] = full_trace[keyorder]
+    for i in np.arange(keyorder)[::-1]:
+        tracek[i] = tracek[i+1] - corrections[i]
+    for i in np.arange(keyorder+1, trace.shape[0]):
+        tracek[i] = tracek[i-1] + corrections[i-1]
+    mstd = mad_std(full_trace - tracek, axis=1, ignore_nan=True)
+    for ind in np.where(mstd>1.0)[0]:
+        log.info('Using neighboring model for trace of fiber: %i' % ind)
+    Z = full_trace - tracek
+    fitter = LevMarLSQFitter()
+    or_fit = FittingWithOutlierRemoval(fitter, sigma_clip,
+                                       niter=3, sigma=5.0)
+    Y, X = np.indices(full_trace.shape)
+    or_fitted_model, mask = or_fit(P2d, X, Y, Z) 
+    offset = or_fitted_model(X, Y) 
+    tracek = tracek + offset
+    full_trace[mstd>1.0] = tracek[mstd>1.0]
+    ghost_columns = list(np.where(mstd>1.0)[0])
+    return full_trace, trace, x, ghost_columns  # Return completed trace arrays
 
 
 
-
-def make_mask_for_trace(image, trace, picket_height=23, picket_bias=-11):
+def make_mask_for_trace(image, trace, picket_height=23, picket_bias=-11,
+                        wave=None):
     '''
     Creates a binary mask around the trace in the image, marking regions to be 
     ignored in further processing, based on the trace's position.
@@ -666,14 +698,18 @@ def make_mask_for_trace(image, trace, picket_height=23, picket_bias=-11):
 
     mask = 0. * image
     x = np.arange(image.shape[1])
-    for y in trace:
+    for j, y in enumerate(trace):
         for i in x:
             bottom = int(y[i]) + picket_bias
             top = bottom + picket_height
-            mask[bottom:top, i] = 1.
+            if wave is None:
+                mask[bottom:top, i] = 1.
+            else:
+                mask[bottom:top, i] = wave[j, i]
     return mask
 
-def normalize_aperture(image, trace, picket_height=23, picket_bias=-11):
+def normalize_aperture(image, image2, trace, picket_height=23, picket_bias=-11,
+                       ghost_columns=None, low_levels=None, interp_mode=True):
     '''
     Creates a binary mask around the trace in the image, marking regions to be 
     ignored in further processing, based on the trace's position.
@@ -703,17 +739,46 @@ def normalize_aperture(image, trace, picket_height=23, picket_bias=-11):
 
     norm = 0. * image
     x = np.arange(image.shape[1])
+    N = np.zeros(trace.shape[0])
     for j, y in enumerate(trace):
         Y = image * 0.
+        Y2 = image * 0.
         for i in x:
             bottom = int(y[i]) + picket_bias
             top = bottom + picket_height
             Y[bottom:top, i] = image[bottom:top, i]
-        avg = biweight(Y[Y!=0.0], ignore_nan=True)
+            Y2[bottom:top, i] = image2[bottom:top, i]
+        sel = (Y!=0.0) * (Y2!=0.0)
+        if sel.sum() < 10:
+            N[j] = 1. 
+            continue
+        avg = biweight(Y[sel] / Y2[sel], ignore_nan=True) 
+        N[j] = avg 
         for i in x:
-            bottom = int(y[i]) + picket_bias
-            top = bottom + picket_height
-            norm[bottom:top, i] = image[bottom:top, i] / avg
+            if low_levels is not None:
+                bottom = int(y[i]) + picket_bias
+                top = bottom + picket_height
+                sel = low_levels[bottom:top, i]
+                if sel.sum() > 5:
+                    norm[bottom:top, i] = image2[bottom:top, i]
+                else:
+                    norm[bottom:top, i] = image[bottom:top, i] / avg 
+    if ghost_columns is not None:
+        y = N * 1.
+        y[ghost_columns] = np.nan
+        x = np.arange(len(y))
+        y = np.interp(x, x[np.isfinite(y)], y[np.isfinite(y)])
+        x = np.arange(image.shape[1])
+        for j in ghost_columns:
+            z = trace[j]
+            for i in x:
+                bottom = int(z[i]) + picket_bias
+                top = bottom + picket_height
+                if interp_mode:
+                    norm[bottom:top, i] = image[bottom:top, i] / y[j]
+                else:
+                    norm[bottom:top, i] = image2[bottom:top, i]
+
     norm[np.isnan(norm)] = 1.
     return norm
 
@@ -1026,7 +1091,7 @@ def make_flat_field(avg_ff, full_trace, mask,  picket_height=17,
     '''
 
     # Step 1: Estimate and remove scattered light from the flat-field image
-    back, orig = get_scattered_light(avg_ff, full_trace, mask)
+    back, orig = get_scattered_light(avg_ff, mask)
 
     # Subtract the estimated scattered light from the original flat-field image
     image = avg_ff - back
@@ -1094,7 +1159,7 @@ def get_trace_correction(spec, image, trace, nchunks=11):
                            for xi in np.array_split(x[sel][inds], 41)])
             yv = np.array([biweight(xi, ignore_nan=True) 
                            for xi in np.array_split(y[sel][inds], 41)])
-            fit = fitter(G + C, xv, yv)
+            fit = Lfitter(G + C, xv, yv)
             centroids[order, k] = fit.mean_0.value
 
     # Fit a 2D polynomial to the centroids
@@ -1115,7 +1180,8 @@ def get_trace_correction(spec, image, trace, nchunks=11):
 
     return trace_cor
 
-def measure_fiber_profile(image, spec, trace, chunksize=100, npix=17):
+def measure_fiber_profile(image, spec, trace, chunksize=100, npix=17,
+                          ghost_columns=None):
     '''
     
 
@@ -1188,11 +1254,17 @@ def measure_fiber_profile(image, spec, trace, chunksize=100, npix=17):
             Y[:, i] = np.interp(xI, mx, y[:, i])
         T[cnt] = Y
         cnt += 1
-
+    
+    # Replace the fiber profiles for the fibers affected by ghosting
+    T[39] = T[38] * 1.
+    T[40] = T[41] * 1.
+    
     return [x, T]
 
 
-def make_fiber_model_image(image, trace, npix=17):
+def make_fiber_model_image(image, trace, wave, npix=17,
+                           line_list=None, line_width=None,
+                           ghost_columns=[39, 40]):
     '''
     Makes a model image of the smoothed spectra for flat fielding
 
@@ -1214,10 +1286,46 @@ def make_fiber_model_image(image, trace, npix=17):
     # Get the spectra for the image
     spec, err = get_spectra(image, trace, npix=15, full_data=False)
     
+    if line_list is not None:
+        orig = spec * 1.
+        x = np.arange(spec.shape[1])
+        for i in np.arange(spec.shape[0]):
+            for line in line_list:
+                sel = np.abs(wave[i] - line) < line_width
+                if sel.sum():
+                    spec[i][sel] = np.interp(x[sel], x[~sel],
+                                             spec[i][~sel])
+    
     newspec = get_blaze_spectra(spec, knots=25)
     
+    if line_list is not None:
+        V = Voigt1D()
+        x = np.arange(spec.shape[1])
+        for i in np.arange(spec.shape[0]):
+            for line in line_list:
+                sel = np.abs(wave[i] - line) < line_width
+                ratio = orig[i] / newspec[i]
+                fsel = sel * np.isfinite(ratio)
+                if fsel.sum() > 5:
+                    V.x_0.value = 0.0
+                    V.fwhm_G.value = 0.15
+                    V.fwhm_L.value = 0.15
+                    V.fwhm_L.bounds = (0.02, 0.3)
+                    V.fwhm_G.bounds = (0.02, 0.3)
+                    V.x_0.bounds = (-0.1, 0.1)
+                    fit = Lfitter(V, wave[i][fsel] - line, ratio[fsel] - 1.)
+                    newspec[i][sel] = (fit(wave[i][sel] - line) + 1.) * newspec[i][sel]
+
+    for j in np.arange(newspec.shape[1]):
+        y = newspec[:, j] * 1.
+        x = np.arange(len(y))
+        y[ghost_columns] = np.nan
+        y = np.interp(x, x[np.isfinite(y)], y[np.isfinite(y)])
+        newspec[:, j] = y
+        
     model_info = measure_fiber_profile(image, newspec, trace, 
-                                       npix=npix, chunksize=50)
+                                       npix=npix, chunksize=50,
+                                       ghost_columns=ghost_columns)
     xv, model = model_info
 
     clean = np.zeros_like(image)
@@ -1845,7 +1953,7 @@ def match_trace_to_archive(trace, archive_trace, keyfiber=20, match_col=1900):
     ref = archive_trace[:, match_col]
     offset = np.argmin(np.abs(trace[:, match_col] - 
                        archival_trace[keyfiber, match_col]))
-    log.info('Fiber offset of trace: %i' % (offset - keyfiber))
+    log.info('Order offset of trace: %i' % (offset - keyfiber))
     newtrace = np.zeros_like(archive_trace)
     newtrace[keyfiber] = trace[offset]
     for j in np.arange(keyfiber)[::-1]:
@@ -1856,7 +1964,7 @@ def match_trace_to_archive(trace, archive_trace, keyfiber=20, match_col=1900):
         trace_ind =  offset - keyfiber + j
         if trace_ind < trace.shape[0]:
             newtrace[j] = trace[trace_ind]
-    return newtrace
+    return newtrace, offset - keyfiber
 
 def get_initial_arc_shift(avg_arc, archival_arc):
     '''
@@ -1987,6 +2095,161 @@ def plot_trace_offset(trace_cor, name):
     # Save the plot as a PNG file with the given name
     plt.savefig(op.join(reducfolder, 'trace_offset_%s_residual.png' % name))
     
+def make_ghost_model(model, image, trace, ghost_order):
+    '''
+    Creates a ghost model for subtraction from a 2D image.
+
+    Parameters
+    ----------
+    model : ndarray
+        Background model of the image.
+    image : ndarray
+        Input 2D image.
+    trace : ndarray
+        Fiber trace positions.
+    ghost_order : tuple
+        Fiber indices for ghost modeling.
+
+    Returns
+    -------
+    ghost_image : ndarray
+        Generated ghost model.
+    '''
+    fitter = LevMarLSQFitter()  # Initialize least squares fitter
+    ghost_image = np.zeros_like(image)  # Initialize ghost model array
+
+    for col in np.arange(image.shape[1]):
+        mn = int(trace[ghost_order[0], col] - 15)  # Lower region bound
+        mx = int(trace[ghost_order[1] , col] + 15)  # Upper region bound
+        y = image[mn:mx, col] - model[mn:mx, col]  # Residual signal in column
+        x = np.linspace(0, 1, len(y))  # Normalize x-axis
+        xloc = x[np.nanargmax(y)]  # Peak location of residual
+        tmodel = Trapezoid1D(x_0=xloc, width=0.1, slope=20)  # Initialize trapezoid model
+
+        # Set parameter bounds
+        tmodel.width.bounds = (0.05, 0.15)
+        tmodel.amplitude.bounds = (0.8, 1.2)
+        tmodel.slope.bounds = (10, 50)
+
+        norm = np.nanmax(y)  # Normalize by peak value
+        if norm > 0.1 * np.nanmax(model[mn:mx, col]):  # Fit if residual is significant
+            fit = fitter(tmodel, x, y / norm)  # Fit model to data
+            tmodel = Trapezoid1D(x_0=fit.x_0.value, width=0.1, slope=20)  # Refit for refinement
+            fit = fitter(tmodel, x, y / norm)  # Final fit
+            ghost_image[mn:mx, col] = fit(x) * norm  # Store fitted model in ghost image
+
+    return ghost_image  # Return the ghost model
+
+
+def spline_background(image, knots=23):
+    '''
+    Estimates the background of a 2D image using spline fitting.
+
+    Parameters
+    ----------
+    image : ndarray
+        Input 2D image.
+    knots : int, optional
+        Number of knots for spline fitting. Default is 23.
+
+    Returns
+    -------
+    scatter : ndarray
+        Estimated background with the same shape as the input image.
+    '''
+    x = np.linspace(-1, 1, image.shape[0])  # Normalized x-axis for rows
+    fitter = SplineExactKnotsFitter()  # Spline fitting tool
+    scatter = np.zeros_like(image)  # Initialize background array
+
+    # Fit splines column-wise
+    for col in np.arange(image.shape[1]):
+        y = image[:, col]  # Column data
+        good = y != 0.0  # Valid data mask
+        P1d = Spline1D()  # Initialize spline model
+        x = np.linspace(-1, 1, len(y))  # Normalized x-axis for the column
+        t = np.linspace(np.min(x[good]) + 0.01, np.max(x[good]) - 0.01, knots)  # Knot positions
+        fit = fitter(P1d, x[good], y[good], t=t)  # Fit spline
+        z = fit(x)  # Evaluate spline
+        good = good * (y - z <= np.sqrt(z))  # Exclude outliers
+        t = np.linspace(np.min(x[good]) + 0.01, np.max(x[good]) - 0.01, knots)  # Update knots
+        scatter[:, col] = fitter(P1d, x[good], y[good], t=t)(x)  # Refit and store
+
+    # Fit splines row-wise
+    for row in np.arange(scatter.shape[0]):
+        y = scatter[row, :]  # Row data
+        good = y != 0.0  # Valid data mask
+        P1d = Spline1D()  # Initialize spline model
+        x = np.linspace(-1, 1, len(y))  # Normalized x-axis for the row
+        t = np.linspace(np.min(x[good]) + 0.01, np.max(x[good]) - 0.01, knots)  # Knot positions
+        scatter[row, :] = fitter(P1d, x[good], y[good], t=t)(x)  # Fit and store
+
+    return scatter  # Return estimated background
+
+
+def make_flatfield_plot(flat_frame, ghost_image, model, flat):
+    '''
+    Creates a four-panel plot to visualize flat field data and associated models.
+
+    Parameters
+    ----------
+    flat_frame : 2D array
+        The average flat frame.
+    ghost_image : 2D array
+        The picket fence model subtracted from the flat frame.
+    model : 2D array
+        The 2D flat frame model used as a divisor.
+    flat : 2D array
+        The final flat field used for science frame corrections.
+
+    Returns
+    -------
+    None
+        Saves the generated plot as a PNG file.
+    '''
+    
+    # Set up a figure with 4 vertically stacked subplots
+    fig, axs = plt.subplots(4, 1, figsize=(8, 8*1.35), sharex=True, 
+                            gridspec_kw={'hspace':0.01})
+    cutout = flat_frame[850:1290, 400:2000]  # Define region for percentile calculations
+    vni = np.nanpercentile(cutout, 0.2)  # Minimum normalization value
+    vmi = np.nanpercentile(cutout, 99.8)  # Maximum normalization value
+    vns = [vni, vni, vni, 0.98]  # Normalization vmin values
+    vms = [vmi, vmi, vmi, 1.02]  # Normalization vmax values
+    names = ['Average Flat', 'Picket Fence Model', 'Model', 'Flat Field']
+    colors = plt.get_cmap('Set1')(np.linspace(0, 1, 9))[:len(names)]  # Define colors
+    cnt = 0  # Counter for subplot positions
+
+    # Loop through images, axes, and settings to create each subplot
+    for image, ax, vn, vm, name, color in zip([flat_frame, ghost_image, model, flat], 
+                                              axs, vns, vms, names, colors):
+        cutout = image[750:1390, 10:2000]  # Define region for display
+        norm = ImageNormalize(cutout, vmin=vn, vmax=vm, stretch=AsinhStretch())  # Normalization
+
+        # Display the image on the subplot
+        ax.imshow(cutout, aspect=1.0, origin='lower', norm=norm, cmap=plt.get_cmap('Greys_r'))
+
+        # Format subplot ticks
+        ax.tick_params(axis='both', which='both', direction='in', zorder=3)
+        ax.tick_params(axis='y', which='both', left=True, right=True)
+        ax.tick_params(axis='x', which='both', bottom=True, top=True)
+        ax.tick_params(axis='both', which='major', length=8, width=2)
+        ax.tick_params(axis='both', which='minor', length=4, width=1)
+        ax.minorticks_on()
+
+        # Add a label for the panel
+        ax.text(50, 1390-750-70, name, color=color)
+
+        # Clear x and y ticks for all subplots
+        plt.sca(ax)
+        plt.xticks([])
+        plt.yticks([])
+
+        # Adjust position of each subplot
+        ax.set_position([0.05, 0.725 - cnt*0.225, 0.9, 0.225])
+        cnt += 1
+        
+    # Save the plot as a PNG file
+    plt.savefig(op.join(reducfolder, 'flat_field_visual.png'))
 
     
 # =============================================================================
@@ -2010,9 +2273,6 @@ parser.add_argument("-ea", "--extraction_aperture",
                     help='''Pixel aperture in "rows" used for extraction (default=11)''',
                    type=int, default=11)
 
-parser.add_argument("-we", "--weighted_extraction",
-                    help='''Extract spectra using fiber profile weights''',
-                    action="count", default=0)
 
 parser.add_argument("-fae", "--full_aperture_extraction",
                     help='''Extract the full aperture for each spectrum''',
@@ -2103,14 +2363,22 @@ for label in labels:
 # =============================================================================
 # 2. Configuration values
 # =============================================================================
-Ncols = 2048
-Nrows = 2048
-Bias_section_size = 32
-gain=0.584
-readnoise=3.06
-fiber_model_thresh = 1000
-trace_order = 4
-trace_ncolumns = 250
+Ncols = 2048  # Number of columns in the detector (pixels)
+Nrows = 2048  # Number of rows in the detector (pixels)
+Bias_section_size = 32  # Width of the overscan region (pixels) used for bias correction
+gain = 0.584  # Conversion factor from electrons to ADU (Analog-to-Digital Units)
+readnoise = 3.06  # Read noise of the detector in electrons (e-)
+fiber_model_thresh = 250  # Threshold for fiber model fitting (arbitrary units)
+trace_order = 4  # Polynomial order used for tracing the fiber paths
+trace_ncolumns = 250  # Number of columns used for fiber tracing
+flat_line_list = [  # Wavelengths (in Ångströms) of emission lines in the flat-field
+    3679.9, 3705.6, 3719.9, 3722.6, 3733.3, 3734.9, 3737.1,
+    3745.6, 3748.3, 3820.5, 3824.4, 3856.4, 3859.9, 3878.6,
+    3886.3, 3899.7, 3922.9, 3927.9, 3930.3, 3944.1, 3961.6,
+    5890.04, 5896.0
+]
+flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field emission lines
+
 
 # =============================================================================
 # 3. Master Bias Creation
@@ -2167,40 +2435,24 @@ log.info('Measuring the Trace from the Flat Frame')
 archival_trace = fits.open(op.join(configfolder, 'trace_image.fits'))[0].data
 # Add initial offset for the trace
 archival_trace = archival_trace + Info[0][0]
-full_trace, trace, x = get_trace(avg_ff, N=trace_ncolumns, order=trace_order)
-back, orig = get_scattered_light(avg_ff, full_trace, mask)
-full_trace, trace, x = get_trace(avg_ff-back, N=trace_ncolumns, 
+back, orig = get_scattered_light(avg_ff, mask)
+full_trace, trace, x, ghost_col = get_trace(avg_ff-back, N=trace_ncolumns, 
                                  order=trace_order)
 
 M = int(full_trace.shape[0] / 2.)
 plot_trace(full_trace, trace, x, orders=[2, M, full_trace.shape[0]-3])
 
 # Match trace to archive
-full_trace = match_trace_to_archive(full_trace, archival_trace)
+full_trace, foffset = match_trace_to_archive(full_trace, archival_trace)
+ghost_col = [g-foffset for g in ghost_col 
+             if (g - foffset > 0) and (g - foffset < len(full_trace))]
+ghost_col = [g for g in ghost_col if np.abs(g-40) < 10]
 fits.HDUList([fits.PrimaryHDU(full_trace),
               fits.ImageHDU(trace), fits.ImageHDU(x)]).writeto(op.join(reducfolder,
                                                         'trace_image.fits'), 
                                                   overwrite=True)
 
-# =============================================================================
-# 8. Flat Field Correction
-# =============================================================================
-log.info('Creating the 2D Flat Field')
-back, orig = get_scattered_light(avg_ff, full_trace, mask)
-spectra, err = get_spectra(avg_ff - back, full_trace)
-fits.PrimaryHDU(spectra).writeto(op.join(reducfolder, 'ff_spectra.fits'), 
-                                                    overwrite=True)
-model = make_fiber_model_image(avg_ff - back, full_trace, npix=21)
-low_level_pixels = (model > 0.) * (model < fiber_model_thresh)
-M = make_mask_for_trace(avg_ff, full_trace, picket_height=17, picket_bias=-8)
-outside_trace_sel = M == 0.
-flat = (avg_ff - back) / model
-flat = normalize_aperture(flat, full_trace, picket_height=17, picket_bias=-8)
-flat[outside_trace_sel] = 1.
-flat[mask > 0.] = np.nan
 
-fits.PrimaryHDU(flat).writeto(op.join(reducfolder,'ff_model.fits'), 
-                                                    overwrite=True)
 
 # =============================================================================
 # 9. Make Master Arc Image and Spectra
@@ -2210,7 +2462,7 @@ arc_files = [filename for filename, name in zip(filenames, names)
               if name.lower() == args.arc_label]
 
 avg_arc, header = build_master_arc(arc_files, Nrows, Ncols, avg_bias)
-back, orig = get_scattered_light(avg_arc, full_trace, mask)
+back, orig = get_scattered_light(avg_arc, mask)
 
 fits.PrimaryHDU(avg_arc, header=header).writeto(op.join(reducfolder,
                                                              'arc_image.fits'), 
@@ -2225,6 +2477,7 @@ arc_cont = get_continuum(arc_spectra, nbins=105, use_filter=True, per=35)
 # =============================================================================
 
 fitter = LevMarLSQFitter()
+Lfitter = TRFLSQFitter()
 or_fit = FittingWithOutlierRemoval(fitter, sigma_clip,
                                    niter=3, sigma=5.0)
 P2 = Polynomial1D(2)
@@ -2250,6 +2503,104 @@ archive_wave = L[3].data
 wave = get_wavelength_offset_from_archive(archive_arc, archive_wave,
                                           arc_spectra)
 
+
+# =============================================================================
+# 8. Flat Field Correction
+# =============================================================================
+log.info('Creating the 2D Flat Field')
+# Getting background
+M = make_mask_for_trace(avg_ff, full_trace, picket_height=21, picket_bias=-10)
+outside_trace_sel = M == 0.
+z = avg_ff * 1.
+z[~outside_trace_sel] = 0.0
+back = spline_background(z)
+fits.PrimaryHDU(avg_ff-back, header=header).writeto(op.join(reducfolder,
+                                                            'ff_image.fits'), 
+                                                    overwrite=True)
+# Extracting Spectra
+spectra, err = get_spectra(avg_ff - back, full_trace)
+wave_im = make_mask_for_trace(avg_ff, full_trace, wave=wave, 
+                              picket_height=17, picket_bias=-8)
+fits.PrimaryHDU(wave_im).writeto(op.join(reducfolder,'wave_image.fits'), 
+                                                    overwrite=True)
+
+# Modeling the fibers
+model = make_fiber_model_image(avg_ff - back, full_trace, wave, npix=25,
+                               line_list=flat_line_list,
+                               line_width=flat_line_window,
+                               ghost_columns=ghost_col)
+low_level_pixels = (model > 0.) * (model < fiber_model_thresh)
+model = normalize_aperture(model, avg_ff - back, full_trace, 
+                           low_levels=low_level_pixels, interp_mode=True,
+                           picket_height=21, picket_bias=-10, 
+                           ghost_columns=ghost_col)
+
+# Getting the ghost image
+ghost_image = make_ghost_model(model, avg_ff - back, full_trace, ghost_col)
+
+# Re-measuring the trace
+orig_trace = full_trace * 1.
+full_trace, trace, x, temp = get_trace(avg_ff-back - ghost_image, 
+                                       N=trace_ncolumns, 
+                                       order=trace_order)
+
+M = int(full_trace.shape[0] / 2.)
+plot_trace(full_trace, trace, x, orders=[2, M, full_trace.shape[0]-3])
+
+# Match trace to archive
+full_trace, foffset = match_trace_to_archive(full_trace, archival_trace)
+
+for gc in ghost_col:
+    d = np.median(full_trace[gc] - orig_trace[gc])
+    log.info('Trace shift for ghost order %i: %0.2f' % (gc, d))
+    
+# Make new model
+
+model = make_fiber_model_image(avg_ff - back, full_trace, wave, npix=25,
+                               line_list=flat_line_list,
+                               line_width=flat_line_window,
+                               ghost_columns=ghost_col)
+low_level_pixels = (model > 0.) * (model <  fiber_model_thresh)
+M = make_mask_for_trace(avg_ff, full_trace, picket_height=17, picket_bias=-8)
+outside_trace_sel = M == 0.
+model = normalize_aperture(model, avg_ff - back, full_trace, 
+                           low_levels=low_level_pixels, interp_mode=True,
+                           picket_height=21, picket_bias=-10, 
+                           ghost_columns=ghost_col)
+fits.PrimaryHDU(model).writeto(op.join(reducfolder,'ff_flat.fits'), 
+                                                    overwrite=True)
+# Get ghost image again with new trace
+ghost_image = make_ghost_model(model, avg_ff - back, full_trace, ghost_col)
+
+fits.PrimaryHDU(avg_ff - back - ghost_image).writeto(op.join(reducfolder,'ff_sub.fits'), 
+                                                    overwrite=True)
+
+
+# Make new model
+model = make_fiber_model_image(avg_ff - back - ghost_image, full_trace, wave, 
+                               npix=21, line_list=flat_line_list,
+                               line_width=flat_line_window,
+                               ghost_columns=ghost_col)
+
+model = normalize_aperture(model, avg_ff - back - ghost_image, full_trace, 
+                           low_levels=low_level_pixels, interp_mode=False,
+                           picket_height=21, picket_bias=-10, 
+                           ghost_columns=ghost_col)
+
+M = make_mask_for_trace(avg_ff, full_trace, picket_height=17, picket_bias=-8)
+outside_trace_sel = M == 0.
+
+# Make flat from model
+flat = (avg_ff - back - ghost_image) / model
+flat[outside_trace_sel] = 1.
+flat[mask > 0.] = 1.
+flat[low_level_pixels] = 1.
+flat[~np.isfinite(flat)] = 1.
+fits.PrimaryHDU(flat).writeto(op.join(reducfolder,'ff_model.fits'), 
+                                                    overwrite=True)
+
+make_flatfield_plot(avg_ff-back, ghost_image, model, flat)
+
 # =============================================================================
 # 11. Building combined wavelength for rectification
 # =============================================================================
@@ -2264,12 +2615,16 @@ combined_wave = np.exp(np.linspace(wmin, wmax, nsteps))
 # 12. Build deblazing function and ratios for combining orders
 # =============================================================================
 log.info('Building the deblazing function')
-back, orig = get_scattered_light(avg_ff, full_trace, mask)
-ff_spectra, ff_err = get_spectra((avg_ff - back) / flat, full_trace, npix=15)
-ff_cont = get_continuum(ff_spectra, use_filter=True, per=50)
+fits.PrimaryHDU((avg_ff - back) / flat).writeto(op.join(reducfolder,'ff_unflat.fits'), 
+                                                    overwrite=True)
+ff_spectra, ff_err = get_spectra((avg_ff - back-ghost_image) / flat, full_trace, npix=15)
+flat_spec, flat_err = get_spectra(flat, full_trace, npix=15)
+
+fits.PrimaryHDU(ff_spectra).writeto(op.join(reducfolder, 'ff_spectra.fits'), 
+                                                    overwrite=True)
+ff_cont = get_blaze_spectra(ff_spectra, knots=35)
 blaze = ff_cont / np.nanmedian(ff_cont)
-fits.PrimaryHDU(blaze).writeto(op.join(reducfolder,
-                                                             'blaze_spectra.fits'), 
+fits.PrimaryHDU(blaze).writeto(op.join(reducfolder,'blaze_spectra.fits'), 
                                                     overwrite=True)
 ratios = get_weights_for_combine(ff_spectra, wave, combined_wave)
 
@@ -2293,7 +2648,7 @@ for filename in sci_files:
     original = image * 1.
     
     # Get scattered light correction
-    back, orig = get_scattered_light(image, full_trace, mask)
+    back, orig = get_scattered_light(image, mask)
     image = image - back
     
     # Apply flat-field correction
@@ -2335,8 +2690,7 @@ for filename in sci_files:
     
     # Re-extract spectra using the corrected trace
     result = get_spectra(image, trace, npix=args.extraction_aperture, 
-                            full_data=args.full_aperture_extraction,
-                            weighted_extraction=args.weighted_extraction)
+                            full_data=args.full_aperture_extraction)
  
     if args.full_aperture_extraction:
         spec, err, data, datae, XV, YV = result
@@ -2368,7 +2722,7 @@ for filename in sci_files:
     
 # More examples
 # ff_model flag for too low of signal. (new fiber issue)
-# Robust second trace effort
-# Need to look at the trace issue and identifying the trace
 # Cosmic Ray Rejection still not great
-# For trace: ID ref fibers, track one fiber at a time, fit trace, plot trace
+# Extnames
+# Trace issue because of the picket
+# More robust trace adjustments
