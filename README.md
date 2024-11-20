@@ -195,6 +195,12 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
     - Generate weights for combining spectral orders using blaze-corrected flat-field spectra.
     - The combine_spectrum function combines multiple spectra into a single spectrum through weighted averaging. It first interpolates the individual spectra and their associated errors onto a specified new wavelength grid using piecewise cubic Hermite interpolation. Then, it calculates the combined spectrum by summing the weighted interpolated spectra and propagates the uncertainties to compute the combined error, returning both the resulting spectrum and its associated error.
    
+<p align="center">
+  <img src="images/example_TSDRP_plot.png" width="650"/>
+  
+  <em>We present an example of a twilight spectrum that has been reduced, deblazed, and combined into a single spectrum. Four wavelength regions are highlighted across the different panels.</em>
+</p>
+   
 15. **Cosmic Ray Detection**
     - We use a new but robust approach for cosmic ray detection.
     - This code first computes a smoothed version of the error array using a median filter of width ~10 for each row. It then creates a binary model indicating where the error frame significantly exceeds the smoothed error frame by normalizing the difference and setting values outside a specific range to zero. The model is convolved with a 2D box kernel to expand the detection of outliers, which are cosmic rays, and updates the total mask by combining the existing mask with newly identified problematic pixels.
