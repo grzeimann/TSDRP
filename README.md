@@ -172,7 +172,8 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
 
 <p align="center">
   <img src="images/wave_offset_1D.png" width="650"/>
-  <em>This plot shows the initial wavelength offset as a function of order for one night's data.  Note this data was in a different setup than the archived file but the pipeline still found the offset versus order</em>
+  
+  <em>This plot illustrates the initial wavelength offset as a function of echelle order for data collected on a single night. Note that this dataset was acquired using a different configuration than the archived file. Despite this difference, the pipeline successfully determined the offset for each order.</em>
 </p>
 
    
