@@ -2471,6 +2471,8 @@ log.info('Building Master Bias')
 bias_files = [filename for filename, name in zip(filenames, names) 
               if name.lower() == args.bias_label]
 
+if len(bias_files) == 0:
+    log.error('No bias files found.  Please check the "--bias_label" is correct')
 avg_bias, header = build_master_bias(bias_files, Nrows, Ncols, Bias_section_size)
 
 fits.PrimaryHDU(avg_bias, header=header).writeto(op.join(reducfolder,
@@ -2485,6 +2487,8 @@ log.info('Building Master Flat Frame')
 ff_files = [filename for filename, name in zip(filenames, names) 
               if name.lower() == args.flat_label]
 
+if len(ff_files) == 0:
+    log.error('No flat files found.  Please check the "--flat_label" is correct')
 avg_ff, header = build_master_ff(ff_files, Nrows, Ncols, Bias_section_size, avg_bias)
 fits.PrimaryHDU(avg_ff, header=header).writeto(op.join(reducfolder,
                                                             'ff_image.fits'), 
@@ -2505,6 +2509,9 @@ fits.PrimaryHDU(mask).writeto(op.join(reducfolder,
 log.info('Building Arc Frame and Getting Initial X, Y Shift')
 arc_files = [filename for filename, name in zip(filenames, names) 
               if name.lower() == args.arc_label]
+
+if len(arc_files) == 0:
+    log.error('No arc files found.  Please check the "--arc_label" is correct')
 
 avg_arc, header = build_master_arc(arc_files, Nrows, Ncols, avg_bias)
 archival_arc = fits.open(op.join(configfolder, 'arc_image.fits'))[0].data
@@ -2815,4 +2822,3 @@ for filename in sci_files:
 # More examples
 # Cosmic Ray Rejection still not great
 # Deblazing
-# More robust trace adjustments
