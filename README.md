@@ -29,8 +29,12 @@ pip install numpy scipy matplotlib astropy scikit-image seaborn
 
 ### Optional Libraries (Suggested)
 To fill in masked values we use Pieter van Dokkum's maskfill.  The description can be found in van Dokkum & Pasha (2024) (PASP).
+
+To detect cosmic rays, we are using an python adaptation of LACosmic from (van Dokkum 2001, PASP, 113, 789, 1420) found in astropy's library.  This does require a separate module to be installed though, called astroscrappy.
+
 ```bash
 pip install maskfill
+pip install astroscrappy
 ```
 
 ## Usage
@@ -195,11 +199,18 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
     - Generate weights for combining spectral orders using blaze-corrected flat-field spectra.
     - The combine_spectrum function combines multiple spectra into a single spectrum through weighted averaging. It first interpolates the individual spectra and their associated errors onto a specified new wavelength grid using piecewise cubic Hermite interpolation. Then, it calculates the combined spectrum by summing the weighted interpolated spectra and propagates the uncertainties to compute the combined error, returning both the resulting spectrum and its associated error.
    
+<p align="center">
+  <img src="images/example_TSDRP_plot.png" width="650"/>
+  
+  <em>We present an example of a twilight spectrum that has been reduced, deblazed, and combined into a single spectrum. Four wavelength regions are highlighted across the different panels.</em>
+</p>
+   
 15. **Cosmic Ray Detection**
-    - We use a new but robust approach for cosmic ray detection.
+    - We use astroscrappy's version of LACosmic from Pieter van Dokkum.
+    - We also employ a new but robust approach for cosmic ray detection if astroscrappy is not installed.
     - This code first computes a smoothed version of the error array using a median filter of width ~10 for each row. It then creates a binary model indicating where the error frame significantly exceeds the smoothed error frame by normalizing the difference and setting values outside a specific range to zero. The model is convolved with a 2D box kernel to expand the detection of outliers, which are cosmic rays, and updates the total mask by combining the existing mask with newly identified problematic pixels.
 
-16. **Science Frame Reduction**
+17. **Science Frame Reduction**
     - The script reduces science frames by applying bias, scattered light, and flat-field corrections.
     - It then extracts spectra and corrects the trace.
     - Optionally, the script detects cosmic rays and fills masked pixels.
@@ -210,7 +221,7 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
     # Create a list of FITS HDUs (Header Data Units) for each data component
     L = [fits.PrimaryHDU(header=header),   # Primary HDU with header
          fits.ImageHDU(original),          # Original image
-         fits.ImageHDU(image),             # Bias-subtracted image
+         fits.ImageHDU(image),             # Bias-subtracted, Background-subtracted, and CR cleaned image
          fits.ImageHDU(image_e),           # Error image
          fits.ImageHDU(np.array(image_m > 0., dtype=float)),  # Mask as binary
          fits.ImageHDU(spectra),           # Extracted spectra
