@@ -21,8 +21,8 @@ from astropy.convolution import Box2DKernel
 from astropy.io import fits
 from astropy.modeling.fitting import FittingWithOutlierRemoval, LevMarLSQFitter
 from astropy.modeling.fitting import TRFLSQFitter
-from astropy.modeling.models import Polynomial1D, Polynomial2D, Gaussian1D
-from astropy.modeling.models import Const1D, Spline1D, Voigt1D, Trapezoid1D
+from astropy.modeling.models import Polynomial1D, Polynomial2D
+from astropy.modeling.models import Spline1D, Voigt1D, Trapezoid1D
 from astropy.modeling.fitting import SplineExactKnotsFitter
 from astropy.stats import biweight_location as biweight
 from astropy.stats import mad_std, sigma_clip
@@ -1133,8 +1133,7 @@ def get_trace_correction(spec, image, trace, nchunks=11):
         Corrected trace positions.
     '''
     
-    G = Gaussian1D()  # Gaussian model for profile fitting
-    C = Const1D()     # Constant baseline model
+
     centroids = np.zeros((len(spec), nchunks))  # Centroid storage
     XK = np.zeros_like(centroids)  # Store mean wavelength per chunk
 
@@ -1159,8 +1158,7 @@ def get_trace_correction(spec, image, trace, nchunks=11):
                            for xi in np.array_split(x[sel][inds], 41)])
             yv = np.array([biweight(xi, ignore_nan=True) 
                            for xi in np.array_split(y[sel][inds], 41)])
-            fit = Lfitter(G + C, xv, yv)
-            centroids[order, k] = fit.mean_0.value
+            centroids[order, k] = xv[np.argmax(yv)] 
 
     # Fit a 2D polynomial to the centroids
     P2d = Polynomial2D(4)
@@ -1179,6 +1177,85 @@ def get_trace_correction(spec, image, trace, nchunks=11):
                                 centroids_model[row])(np.arange(spec.shape[1]))
 
     return trace_cor
+
+def inspect_trace(spec, image, trace, name, nchunks=11):
+    """
+    Inspect trace profiles for specific spectral orders by visualizing 
+    the fiber profiles.
+
+    Parameters
+    ----------
+    spec : ndarray
+        2D array representing the spectrum for each trace order.
+    image : ndarray
+        2D array of the input image data.
+    trace : ndarray
+        Array specifying the trace positions for each order.
+    name : str
+        Identifier for the output file name.
+    nchunks : int, optional
+        Number of chunks to divide the data for centroid fitting. Default is 11.
+
+    Returns
+    -------
+    None
+        Saves a diagnostic plot for trace inspection.
+    """
+    # Determine middle order and central chunk index
+    M = int(trace.shape[0] / 2)  # Middle order
+    V = int(nchunks / 2)         # Central chunk index
+    orders = [8, M, trace.shape[0] - 9]  # Orders to analyze
+
+    # Create subplots for each order
+    fig, axs = plt.subplots(
+        len(orders), 1, figsize=(8, 4 * len(orders)), 
+        sharex=True, gridspec_kw={'hspace': 0.0}, layout="constrained"
+    )
+
+    # Loop over specified orders
+    for ax, order in zip(axs, orders):
+        # Skip invalid orders (trace or spectrum with zero or NaN values)
+        if np.all(trace[order] == 0.):
+            continue
+        if np.all(np.isnan(spec[order])):
+            continue
+
+        # Extract fiber profile for the current order
+        x, y, r = get_fiber_profile_order(image, spec, trace, order)
+        x, y, r = [np.array(xi) for xi in [x, y, r]]
+
+        # Split the data into chunks for fitting
+        X = np.arange(spec.shape[1])
+        xchunks = np.array_split(X, nchunks)
+
+        # Select data within the central chunk
+        xchunk = xchunks[V]
+        sel = (r > np.min(xchunk)) & (r <= np.max(xchunk))
+        inds = np.argsort(x[sel])  # Sort indices for ordered processing
+
+        # Compute robust averages (biweight) for x and y
+        xv = np.array([biweight(xi, ignore_nan=True) 
+                       for xi in np.array_split(x[sel][inds], 41)])
+        yv = np.array([biweight(xi, ignore_nan=True) 
+                       for xi in np.array_split(y[sel][inds], 41)])
+
+        # Plot the fiber profile and fitted centroids
+        ax.step(xv, yv, where='mid', lw=4, color='grey')      # Background plot
+        ax.step(xv, yv, where='mid', lw=1, color='firebrick') # Highlighted plot
+        ax.plot([0., 0.], [-0.03, 0.349], 'r--', lw=1)
+        # Adjust plot appearance
+        ax.set_ylim([-0.03, 0.349])
+        ax.tick_params(axis='both', which='both', direction='in', zorder=3)
+        ax.tick_params(axis='y', which='both', left=True, right=True)
+        ax.tick_params(axis='x', which='both', bottom=True, top=True)
+        ax.tick_params(axis='both', which='major', length=8, width=2)
+        ax.tick_params(axis='both', which='minor', length=4, width=1)
+        ax.minorticks_on()
+
+    # Save the figure with a descriptive filename
+    plt.savefig(op.join(reducfolder, f'trace_inspect_{name}.png'))
+
+
 
 def measure_fiber_profile(image, spec, trace, chunksize=100, npix=17,
                           ghost_columns=None):
@@ -1905,7 +1982,9 @@ def write_spectrum(original, image, image_e, image_m,
         header['history'] = 'Flattened Spectrum Normalized'
     if args.full_aperture_extraction:
         header['history'] = 'Full Aperture Extracted and Appended'
-
+    
+    extnames = ['PRIMARY', 'ORIGINAL', 'IMAGE', 'ERRIMAGE', 'MASK', 'SPECTRA',
+                'ERROR', 'WAVE', 'COMBINED']
     # Create a list of FITS HDUs (Header Data Units) for each data component
     L = [fits.PrimaryHDU(header=header),   # Primary HDU with header
          fits.ImageHDU(original),          # Original image
@@ -1917,11 +1996,14 @@ def write_spectrum(original, image, image_e, image_m,
          fits.ImageHDU(wave),              # Wavelength solution for each order
          fits.ImageHDU([combined_wave, combined_spectrum, 
                         combined_error])]  # Combined data
-    
+    for l, extname in zip(L, extnames):
+        l.header['EXTNAME'] = extname
     if data is not None:
         L.append(fits.ImageHDU(data))
+        L[-1].header['EXTNAME'] = 'FULLSPECTRUM'
     if datae is not None:
         L.append(fits.ImageHDU(datae))
+        L[-1].header['EXTNAME'] = 'FULLERRSPECTRUM'
     
     # Build the FITS file name by appending '_reduced.fits' to the filename
     name = op.join(reducfolder, op.basename(filename)[:-5] + '_reduced.fits')
@@ -2282,10 +2364,6 @@ parser.add_argument("-fw", "--fit_wave",
                     help='''Fit the wavelength solution''',
                     action="count", default=0)
 
-parser.add_argument("-ft", "--fit_trace",
-                    help='''Fit the wavelength solution''',
-                    action="count", default=0)
-
 parser.add_argument("-drc", "--dont_reject_cosmics",
                     help='''Do not reject cosmic rays''',
                     action="count", default=0)
@@ -2338,7 +2416,13 @@ try:
 except:
     log.warning('maskfill is not installed')
     mask_fill = False
-
+    
+try:
+    from astroscrappy import detect_cosmics
+    cr_code = True
+except:
+    log.warning('astroscrappy is not installed')
+    cr_code = False
 
 folder = args.folder # '20240511'
 basefolder = args.rootdir # '/Users/grz85/work/TS23/2.7m'
@@ -2640,9 +2724,11 @@ sci_files = [filename for filename, calst in zip(filenames, calstage)
 
 # Process the science frames
 for filename in sci_files:
+
     f = fits.open(filename)  
     basename = op.basename(filename)[:-5]  
-    
+    log.info('Reducing %s' % basename)
+
     # Perform basic image reduction using the master bias frame
     image, error = base_reduction(f[0].data, masterbias=avg_bias)
     original = image * 1.
@@ -2664,7 +2750,8 @@ for filename in sci_files:
     plot_trace_offset(trace_cor, basename)
     
     trace = full_trace + trace_cor  # Update the trace
-
+    
+    inspect_trace(spec, image, trace, basename) # additional trace plot
     # Subtracted the background once again
     back = get_background(image, trace, picket_bias=-8, picket_height=17)
     image = image - back
@@ -2679,6 +2766,11 @@ for filename in sci_files:
         model = np.array((model > 0.5))
         model = convolve(model, Box2DKernel(2))
         total_mask = mask + (model > 0.05) # Update mask to include cosmic ray pixels
+        if cr_code:
+            log.info('Detecting cosmics in image for %s' % basename)
+
+            im = detect_cosmics(image)
+            #total_mask = mask + im[0] > 0
     else:
         total_mask = mask
         cosmic_model = None
@@ -2721,8 +2813,6 @@ for filename in sci_files:
 
     
 # More examples
-# ff_model flag for too low of signal. (new fiber issue)
 # Cosmic Ray Rejection still not great
-# Extnames
-# Trace issue because of the picket
+# Deblazing
 # More robust trace adjustments
