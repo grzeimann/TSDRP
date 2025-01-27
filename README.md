@@ -68,10 +68,7 @@ options:
 ```
 
 ### Required Calibrations and Instrument Setup
-Calibration data required :
--Bias 
--Flats 
--Arcs (ThAr) 
+Calibration data required: Bias, Flats, and Arcs (ThAr). 
 
 The echelle and prism setups supported by the pipeline will be filled in soon to aid users for instrumental setup.
 
