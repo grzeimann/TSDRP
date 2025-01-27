@@ -67,6 +67,14 @@ options:
                         The objet name for flat files (default: "FF")
 ```
 
+### Required Calibrations and Instrument Setup
+Calibration data required :
+-Bias 
+-Flats 
+-Arcs (ThAr) 
+
+The echelle and prism setups supported by the pipeline will be filled in soon to aid users for instrumental setup.
+
 ### Examples
 For reductions, it’s best to process one night at a time. The code works within a directory structure rooted in a base folder (rootdir). See the example below.
 ```bash
