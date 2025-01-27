@@ -5,6 +5,11 @@ The Tull Spectrograph Data Reduction Pipeline (TSDRP) is designed to process spe
 
 - TS23
 
+### Required Calibrations and Instrument Setup
+Calibration data required: Bias, Flats, and Arcs (ThAr). 
+
+The echelle and prism setups supported by the pipeline will be filled in soon to aid users for instrumental setup.
+
 ## Installation
 ```bash
 git clone https://github.com/grzeimann/TSP.git
@@ -66,11 +71,6 @@ options:
   -fl FLAT_LABEL, --flat_label FLAT_LABEL
                         The objet name for flat files (default: "FF")
 ```
-
-### Required Calibrations and Instrument Setup
-Calibration data required: Bias, Flats, and Arcs (ThAr). 
-
-The echelle and prism setups supported by the pipeline will be filled in soon to aid users for instrumental setup.
 
 ### Examples
 For reductions, it’s best to process one night at a time. The code works within a directory structure rooted in a base folder (rootdir). See the example below.
