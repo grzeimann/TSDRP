@@ -12,7 +12,7 @@ The echelle and prism setups supported by the pipeline will be filled in soon to
 
 ## Installation
 ```bash
-git clone https://github.com/grzeimann/TSP.git
+git clone https://github.com/grzeimann/TSDRP.git
 ```
 
 ### Prerequisites
