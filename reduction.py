@@ -2384,6 +2384,11 @@ parser.add_argument("-fl", "--flat_label",
                     help='''The objet name for flat files''',
                    type=str, default='FF + CBF')
 
+
+parser.add_argument("-ugm", "--use_ghost_model",
+                    help='''Use Ghost Model to subtract Picket Fence''',
+                    action="count", default=0)
+
 args = None
 args = parser.parse_args(args=args)
 
@@ -2627,13 +2632,19 @@ model = normalize_aperture(model, avg_ff - back, full_trace,
                            ghost_columns=ghost_col)
 
 # Getting the ghost image
-ghost_image = make_ghost_model(model, avg_ff - back, full_trace, ghost_col)
+if args.use_ghost_model:
+    ghost_image = make_ghost_model(model, avg_ff - back, full_trace, ghost_col)
 
-# Re-measuring the trace
-orig_trace = full_trace * 1.
-full_trace, trace, x, temp = get_trace(avg_ff-back - ghost_image, 
-                                       N=trace_ncolumns, 
-                                       order=trace_order)
+    # Re-measuring the trace
+    orig_trace = full_trace * 1.
+    full_trace, trace, x, temp = get_trace(avg_ff-back - ghost_image, 
+                                           N=trace_ncolumns, 
+                                           order=trace_order)
+else:
+    orig_trace = full_trace * 1.
+    full_trace, trace, x, temp = get_trace(avg_ff-back, 
+                                           N=trace_ncolumns, 
+                                           order=trace_order)
 
 M = int(full_trace.shape[0] / 2.)
 plot_trace(full_trace, trace, x, orders=[2, M, full_trace.shape[0]-3])
