@@ -2440,9 +2440,20 @@ filenames = sorted(glob.glob(path))
 names = []
 calstage = []
 for filename in filenames:
-    f = fits.open(filename)
-    names.append(f[0].header['OBJECT'])
-    calstage.append(f[0].header['calstage'])
+    try:
+        f = fits.open(filename)
+    except:
+        print('Could not open file: %s' % filename)
+    try:
+        names.append(f[0].header['OBJECT'])
+        # print('%s: %s' % (filename, names[-1])) # for debugging
+    except:
+         print('Could not find OBJECT name in %s' % filename)
+    try:
+        calstage.append(f[0].header['calstage'])
+    except:
+        print('Could not find calstage name in %s' % filename)
+   
 
 
 labels = ['bias_label', 'arc_label', 'flat_label']
@@ -2672,8 +2683,13 @@ model = normalize_aperture(model, avg_ff - back, full_trace,
 fits.PrimaryHDU(model).writeto(op.join(reducfolder,'ff_flat.fits'), 
                                                     overwrite=True)
 # Get ghost image again with new trace
-ghost_image = make_ghost_model(model, avg_ff - back, full_trace, ghost_col)
+# Getting the ghost image
+if args.use_ghost_model:
+    ghost_image = make_ghost_model(model, avg_ff - back, full_trace, ghost_col)
 
+else:
+    ghost_image = avg_ff * 0. 
+    
 fits.PrimaryHDU(avg_ff - back - ghost_image).writeto(op.join(reducfolder,'ff_sub.fits'), 
                                                     overwrite=True)
 
