@@ -2389,6 +2389,10 @@ parser.add_argument("-ugm", "--use_ghost_model",
                     help='''Use Ghost Model to subtract Picket Fence''',
                     action="count", default=0)
 
+parser.add_argument("-dat", "--dont_adjust_trace",
+                    help='''Do not adjust the trace for individual frames''',
+                    action="count", default=0)
+
 args = None
 args = parser.parse_args(args=args)
 
@@ -2778,12 +2782,15 @@ for filename in sci_files:
     spec, err = get_spectra(image, full_trace, npix=11, full_data=False)
     
     # Correct the trace based on the extracted spectrum
-    trace_cor = get_trace_correction(spec, image, full_trace)
-    
-    # Plot the trace offset for diagnostic purposes
-    plot_trace_offset(trace_cor, basename)
-    
-    trace = full_trace + trace_cor  # Update the trace
+    if not args.dont_adjust_trace:
+        trace_cor = get_trace_correction(spec, image, full_trace)
+        
+        # Plot the trace offset for diagnostic purposes
+        plot_trace_offset(trace_cor, basename)
+        
+        trace = full_trace + trace_cor  # Update the trace
+    else:
+        trace = full_trace * 1.
     
     inspect_trace(spec, image, trace, basename) # additional trace plot
     # Subtracted the background once again
