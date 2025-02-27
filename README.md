@@ -243,6 +243,9 @@ A paper describing TSDRP is not yet available.  For now, authors can use the fol
 
 ```
 The raw Tull Coudé Spectrograph data are initially processed with the Robert G. Tull Coudé Spectrograph
-Data Reduction Pipeline (\texttt{TSDRP}\footnote{\url{https://github.com/grzeimann/TSDRP}}), which carries out bias subtraction, trace identification, scattered light subtraction, wavelength calibration, flat-field correction, cosmic ray rejection, and spectral extraction for each order. The pipeline also offers deblazing, continuum normalization, and combines the separate orders into one single spectrum.
+Data Reduction Pipeline (\texttt{TSDRP}\footnote{\url{https://github.com/grzeimann/TSDRP}}),
+which carries out bias subtraction, trace identification, scattered light subtraction, wavelength calibration,
+flat-field correction, cosmic ray rejection, and spectral extraction for each order. The pipeline also offers deblazing,
+continuum normalization, and combines the separate orders into one single spectrum.
 
 
