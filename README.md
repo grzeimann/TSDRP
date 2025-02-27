@@ -242,10 +242,7 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
 A paper describing TSDRP is not yet available.  For now, authors can use the following short blurb for their work if they desire.  Contact Greg Zeimann (gregz@astro.as.utexas.edu) if you require more details.
 
 ```
-The raw Tull Coudé Spectrograph data are initially processed with the Robert G. Tull Coudé Spectrograph
-Data Reduction Pipeline (\texttt{TSDRP}\footnote{\url{https://github.com/grzeimann/TSDRP}}),
-which carries out bias subtraction, trace identification, scattered light subtraction, wavelength calibration,
-flat-field correction, cosmic ray rejection, and spectral extraction for each order. The pipeline also offers deblazing,
-continuum normalization, and combines the separate orders into one single spectrum.
+The raw Tull Coudé Spectrograph data are initially processed using the Tull Coudé Spectrograph Data Reduction Pipeline (\texttt{TSDRP}\footnote{\url{https://github.com/grzeimann/TSDRP}}). This pipeline performs essential calibration and extraction steps, including bias subtraction, trace identification, scattered light subtraction, wavelength calibration, flat-field correction, cosmic ray rejection, and spectral extraction for each spectral order. Additionally, TSDRP provides deblazing, continuum normalization, and order combination to produce a single, fully processed spectrum.
+```
 
 
