@@ -233,7 +233,16 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
          fits.ImageHDU(error),             # Spectra errors
          fits.ImageHDU(wave),              # Wavelength solution for each order
          fits.ImageHDU([combined_wave, combined_spectrum, 
-                        combined_error])]  # Combined data   
+                        combined_error])]  # Combined data
 ```
+
+
+### Citation
+
+A paper describing TSDRP is not yet available.  For now, authors can use the following short blurb for their work if they desire.  Contact Greg Zeimann (gregz@astro.as.utexas.edu) if you require more details.
+
+```
+The raw Tull Coudé Spectrograph data are initially processed with the Robert G. Tull Coudé Spectrograph
+Data Reduction Pipeline (\texttt{TSDRP}\footnote{\url{https://github.com/grzeimann/TSDRP}}), which carries out bias subtraction, trace identification, scattered light subtraction, wavelength calibration, flat-field correction, cosmic ray rejection, and spectral extraction for each order. The pipeline also offers deblazing, continuum normalization, and combines the separate orders into one single spectrum.
 
 
