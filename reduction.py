@@ -1058,7 +1058,7 @@ def get_blaze_spectra(spectra, knots=15):
                 fit = fitter(P1d, x[good], y[good], t=t)
                 z = fit(x)
             except:
-                log.warning('Spline fit failed for order: %i')
+                log.warning('Spline fit failed for order: %i' % (j))
                 z = y
             B[j] = z  
             B[j][np.isnan(spectra[j])] = np.nan  
