@@ -1054,8 +1054,12 @@ def get_blaze_spectra(spectra, knots=15):
             outlier = np.abs(z - y) > mstd*3.
             good = good * (~outlier)
             t = np.linspace(np.min(x[good])+0.01, np.max(x[good])-0.01, knots)
-            fit = fitter(P1d, x[good], y[good], t=t)
-            z = fit(x)
+            try:
+                fit = fitter(P1d, x[good], y[good], t=t)
+                z = fit(x)
+            except:
+                log.warning('Spline fit failed for order: %i')
+                z = y
             B[j] = z  
             B[j][np.isnan(spectra[j])] = np.nan  
 
@@ -2383,7 +2387,6 @@ parser.add_argument("-al", "--arc_label",
 parser.add_argument("-fl", "--flat_label",
                     help='''The objet name for flat files''',
                    type=str, default='FF + CBF')
-
 
 parser.add_argument("-ugm", "--use_ghost_model",
                     help='''Use Ghost Model to subtract Picket Fence''',
