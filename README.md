@@ -124,9 +124,9 @@ Nrows = 2048  # Number of rows in the detector (pixels)
 Bias_section_size = 32  # Width of the overscan region (pixels) used for bias correction
 gain = 0.584  # Conversion factor from electrons to ADU (Analog-to-Digital Units)
 readnoise = 3.06  # Read noise of the detector in electrons (e-)
-fiber_model_thresh = 250  # Threshold for low fiber flat model pixels (flat_field = 1. for model < thresh)
-trace_order = 4  # Polynomial order used for tracing the fiber paths
-trace_ncolumns = 250  # Number of columns used for fiber tracing
+fiber_model_thresh = 250  # Threshold for low eschelle order flat model pixels (flat_field = 1. for model < thresh)
+trace_order = 4  # Polynomial order used for tracing the eschelle order paths
+trace_ncolumns = 250  # Number of columns used for eschelle order tracing
 flat_line_list = [  # Wavelengths (in Ångströms) of emission lines in the flat-field
     3679.9, 3705.6, 3719.9, 3722.6, 3733.3, 3734.9, 3737.1,
     3745.6, 3748.3, 3820.5, 3824.4, 3856.4, 3859.9, 3878.6,
@@ -152,7 +152,7 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
    - The mask frame is saved as a FITS file (mask_image.fits).
 
 6. **Trace Measurement**
-   - The get_trace function computes the trace for each fiber in the input image by detecting fiber peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a full trace across all columns, along with the trace data per chunk and the averaged x-coordinates.  We also identify orders affected by the "picket fence" feature here by looking at orders with large residuals the trace model of the order and the larger 2D polynomial model for all orders.
+   - The get_trace function computes the trace for each eschelle order in the input image by detecting eschelle order peaks in column chunks and aligning them based on a reference peak pattern. It uses convolution and biweight filtering to enhance and locate peaks, then refines the peak alignment by fitting a polynomial model. Finally, it outputs a full trace across all columns, along with the trace data per chunk and the averaged x-coordinates.  We also identify orders affected by the "picket fence" feature here by looking at orders with large residuals the trace model of the order and the larger 2D polynomial model for all orders.
    - The trace information is saved as a FITS file (trace_image.fits).
 <p align="center">
   <img src="images/trace_example.png" width="650"/>
@@ -187,7 +187,7 @@ flat_line_window = 0.65  # Tolerance (in Ångströms) for modeling flat-field em
 
    
 12. **Flat-Field Correction**
-      - This routine performs a flat field correction, processing a 2D flat field image (avg_ff) through several steps. Initially, it estimates and removes the background using a mask and spline fitting (spline_background), saving the background-subtracted image. The spectra are extracted from the corrected flat field, and a wavelength image is generated for calibration purposes. Next, the code models fiber profiles across the flat field constructing a 2D model image including spectral lines. A "picket fence" image of overlapping spectral features is modeled and subtracted to refine the trace of fibers in the image. The trace is further adjusted to match archival data, and any shifts in orders affected by the "picket fence" are logged.  The fiber model is rebuilt using the refined trace. The "picket fence" image is calculated and subtracted a second time from the original image, refining the flat field model further. Finally, the corrected flat field image is normalized against the model to produce a flat field correction image. This output is processed to handle pixel to pixel variations, fringing effects, and saved for use in subsequent reductions.
+      - This routine performs a flat field correction, processing a 2D flat field image (avg_ff) through several steps. Initially, it estimates and removes the background using a mask and spline fitting (spline_background), saving the background-subtracted image. The spectra are extracted from the corrected flat field, and a wavelength image is generated for calibration purposes. Next, the code models eschelle order profiles across the flat field constructing a 2D model image including spectral lines. A "picket fence" image of overlapping spectral features is modeled and subtracted to refine the trace of eschelle orders in the image. The trace is further adjusted to match archival data, and any shifts in orders affected by the "picket fence" are logged.  The eschelle order model is rebuilt using the refined trace. The "picket fence" image is calculated and subtracted a second time from the original image, refining the flat field model further. Finally, the corrected flat field image is normalized against the model to produce a flat field correction image. This output is processed to handle pixel to pixel variations, fringing effects, and saved for use in subsequent reductions.
    
 <p align="center">
   <img src="images/flat_field_visual.png" width="650"/>
